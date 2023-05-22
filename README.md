@@ -1,111 +1,176 @@
 Agnostic Raw Data (ARD) for Go
 ==============================
 
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Go Reference](https://pkg.go.dev/badge/github.com/tliron/go-ard.svg)](https://pkg.go.dev/github.com/tliron/go-ard)
+[![Go Report Card](https://goreportcard.com/badge/github.com/tliron/go-ard)](https://goreportcard.com/report/github.com/tliron/go-ard)
+
+A library to work with non-schematic data and consume it from various standard formats.
+
+What is ARD? See [here](ARD.md).
+
 This library is [also implemented in Python](https://github.com/tliron/python-ard).
 
 And check out the [ardconv](https://github.com/tliron/ardconv) ARD conversion tool.
 
-What is "agnostic raw data"?
+Features
+--------
 
-### Agnostic
+Read ARD from any Go `Reader` or decode from strings:
 
-ARD comprises data types that are "agnostic", meaning that they can be trivially used by
-practically any programming language, stored in practically any database, and can also be
-transmitted in a wide variety of formats.
+```go
+import (
+	"fmt"
+	"strings"
+	"github.com/tliron/go-ard"
+)
 
-The following data types are supported:
+var yamlRepresentation = `
+first:
+  property1: Hello
+  property2: 1.2
+  property3:
+  - 1
+  - 2
+  - second:
+      property1: World
+`
 
-* strings (Unicode)
-* byte arrays
-* signed integers
-* unsigned integers
-* floats
-* booleans
-* nulls
+func main() {
+	if value, _, err := ard.Read(strings.NewReader(yamlRepresentation), "yaml", false); err == nil {
+		fmt.Printf("%v\n", value)
+	}
+}
+```
 
-As well as two nestable structures:
+Some formats (notably YAML) support a `Locator` interface for finding the line and column
+for each data element, very useful for error messages:
 
-* lists
-* maps (unordered)
+```go
+var yamlRepresentation = `
+first:
+  property1: Hello
+  property2: 1.2
+  property3: [ 1, 2 ]
+`
 
-Note that map keys *do not have to be strings* and indeed can be arbitrarily complex. Such keys
-might be impossible to use in hashtable implementations in some programming languages. In such
-cases maps can be stored as lists of key/value tuples.
+func main() {
+	if _, locator, err := ard.Decode(yamlRepresentation, "yaml", true); err == nil {
+		if locator != nil {
+			if line, column, ok := locator.Locate(
+				ard.NewMapPathElement("first"),
+				ard.NewFieldPathElement("property3"),
+				ard.NewListPathElement(0),
+			); ok {
+				fmt.Printf("%d, %d\n", line, column) // 5, 16
+			}
+		}
+	}
+}
+```
 
-### Raw
+Unmarshal ARD into Go structs:
 
-Data validation is out of scope for ARD. There's no schema. The idea is to support *arbitrary*
-data of any structure and size. Once the ARD is made available other layers can validate its
-structure and otherwise process the values.
+```go
+var data = ard.Map{ // "ard.Map" is an alias for "map[any]any"
+	"FirstName": "Gordon",
+	"lastName":  "Freeman",
+	"nicknames": ard.List{"Tigerbalm", "Stud Muffin"}, // "ard.List" is an alias for "[]any"
+	"children": ard.List{
+		ard.Map{
+			"FirstName": "Bilbo",
+		},
+		ard.StringMap{ // "ard.StringMap" is an alias for "map[string]any"
+			"FirstName": "Frodo",
+		},
+		nil,
+	},
+}
 
-This library does support such schema validation via conversion to Go structs using a
-[reflector](reflection.go).
+type Person struct {
+	FirstName string    // property name will be used as field name
+	LastName  string    `ard:"lastName"`   // "ard" tags work like familiar "json" and "yaml" tags
+	Nicknames []string  `yaml:"nicknames"` // actually, go-ard will fall back to "yaml" tags by default
+	Children  []*Person `json:"children"`  // ...and "json" tags, too
+}
 
-### Data
+func main() {
+	reflector := ard.NewReflector() // configurable; see documentation
+	var p Person
+	if err := reflector.Pack(data, &p); err == nil {
+		fmt.Printf("%+v\n", p)
+	}
+}
+```
 
-This is about *data* as opposed to the *representation of data*. What's the difference? ARD does
-not define *how* the data is stored or transmitted. Thus ARD in itself is not concerned with the
-endiannes or precision of integers and floats, and also not concerned with character encodings
-(compare the Unicode standard for data vs. the UTF-8 standard for encoding that data).
+Copy, merge, and compare:
 
-ARD and Representation Formats
-------------------------------
+```go
+func main() {
+	data_ := ard.SimpleCopy(data)
+	fmt.Printf("%t\n", ard.Equals(data, data_))
+	ard.MergeMaps(data, ard.Map{"role": "hero", "children": ard.List{"Gollum"}}, true)
+	fmt.Printf("%v\n", data)
+}
+```
 
-### CBOR and MessagePack
+Node-based path traversal:
 
-[CBOR](https://cbor.io/) and [MessagePack](https://msgpack.org/) support everything! Though note
-that they are not human-readable.
+```go
+var data = ard.Map{
+	"first": ard.Map{
+		"property1": "Hello",
+		"property2": ard.StringMap{
+			"second": ard.Map{
+				"property1": 1}}}}
 
-### YAML
+func main() {
+	if p1, ok := ard.NewNode(data).Get("first", "property1").String(); ok {
+		fmt.Println(p1)
+	}
+	if p2, ok := ard.NewNode(data).Get("first", "property2", "second", "property1").ConvertSimilar().Float(); ok {
+		fmt.Printf("%f\n", p2)
+	}
+}
+```
 
-YAML supports a rich set of primitive types (when it includes the common
-[JSON schema](https://yaml.org/spec/1.2/spec.html#id2803231)), so most ARD will survive a round
-trip to YAML.
+By default go-ard reads maps into `map[any]any`, but you can normalize for either `map[any]any` or
+`map[string]map` (Go's JSON encoder *requires* the latter):
 
-YAML, however, does not distinguish between signed and unsigned integers.
+```go
+import "encoding/json"
 
-Byte arrays can also be problematic. Some parsers support the optional
-[`!!binary`](https://yaml.org/type/binary.html) type, but others may not. Encoded strings (e.g.
-using Base64) can be used instead to ensure portability.
+var data = ard.Map{ // remember, these are "map[any]any"
+	"person": ard.Map{
+		"age": uint(120),
+	},
+}
 
-Also note that some YAML 1.1 implementations support ordered maps
-([`!!omap`](https://yaml.org/type/omap.html) vs. `!!map`). These will lose their order when
-converted to ARD, so it's best to standardize on arbitrary order (`!!map`). YAML 1.2 does not
-support `!!omap` by default, so this use case may become less and less common.
+func main() {
+	if data_, ok := ard.NormalizeStringMaps(data); ok { // otherwise JSON won't be able to encode the "map[any]any"
+		json.NewEncoder(os.Stdout).Encode(data_)
+	}
+}
+```
 
-### JSON
+Introducing "cjson" (Compatible JSON) format that extends JSON with support for missing ARD
+types: integers, unsigned integers, and maps with non-string keys:
 
-JSON can be read into ARD. However, because JSON has fewer types and more limitations than YAML
-(no signed and unsigned integers, only floats; map keys can only be strings), ARD will lose quite a
-bit of type information when translated into JSON.
+```go
+var data = ard.Map{
+	"person": ard.Map{
+		"age": uint(120),
+	},
+}
 
-We overcome this challenge by extending JSON with some conventions for encoding extra types.
-See [our conventions here](cjson.go) or
-[in the Python ARD library](https://github.com/tliron/python-ard/blob/main/ard/cjson.py).
-
-### XML
-
-XML does not have a type system. Arbitrary XML cannot be parsed into ARD. 
-
-However, we support [certain conventions](xml.go) that enforce such compatibility.
-
-ARD and Programming Languages
------------------------------
-
-### Go
-
-Unfortunately, the most popular Go YAML parser does not easily support arbitrarily complex keys
-(see this [issue](https://github.com/go-yaml/yaml/issues/502)). We provide an independent library,
-[yamlkeys](https://github.com/tliron/yamlkeys), to make this easier.
-
-### Python
-
-Likewise, the Python [ruamel.yaml](https://yaml.readthedocs.io) parser does not easily support
-arbitrarily complex keys. We solve this by extending ruamel.yaml in our
-[Python ARD library](https://github.com/tliron/python-ard).
-
-### JavaScript
-
-See the discussion of JSON, above (JSON stands for "JavaScript Object Notation"). A
-straightforward way to work with ARD in JavaScript is via our ARD-compatible JSON conventions.
-However, it may also be possible to create a library of classes to support ARD features.
+func main() {
+	if data_, ok := ard.ToCompatibleJSON(data); ok { // will also normalize to "map[string]any"
+		if j, err := json.Marshal(data_); err == nil {
+			fmt.Println(string(j)) // {"map":{"age":{"$ard.uinteger":"120"}}}
+			if data__, _, err := ard.Decode(string(j), "cjson", false); err == nil {
+				fmt.Printf("%v\n", data__)
+			}
+		}
+	}
+}
+```

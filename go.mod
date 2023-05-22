@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/beevik/etree v1.2.0
 	github.com/fxamacker/cbor/v2 v2.4.0
-	github.com/tliron/kutil v0.2.0
+	github.com/tliron/kutil v0.2.1
 	github.com/tliron/yamlkeys v1.3.6
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -23,7 +23,7 @@ require (
 	github.com/vmihailenco/msgpack/v5 v5.3.5 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	golang.org/x/crypto v0.8.0 // indirect
-	golang.org/x/sys v0.7.0 // indirect
-	golang.org/x/term v0.7.0 // indirect
+	golang.org/x/crypto v0.9.0 // indirect
+	golang.org/x/sys v0.8.0 // indirect
+	golang.org/x/term v0.8.0 // indirect
 )
