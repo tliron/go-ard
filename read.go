@@ -1,12 +1,14 @@
 package ard
 
 import (
+	contextpkg "context"
 	"encoding/json"
 	"fmt"
 	"io"
 
 	"github.com/beevik/etree"
 	"github.com/fxamacker/cbor/v2"
+	"github.com/tliron/exturl"
 	"github.com/tliron/kutil/util"
 	"github.com/tliron/yamlkeys"
 	"gopkg.in/yaml.v3"
@@ -34,6 +36,16 @@ func Read(reader io.Reader, format string, locate bool) (Value, Locator, error) 
 
 	default:
 		return nil, nil, fmt.Errorf("unsupported format: %q", format)
+	}
+}
+
+func ReadURL(context contextpkg.Context, url exturl.URL, locate bool) (Value, Locator, error) {
+	if reader, err := url.Open(context); err == nil {
+		reader = util.NewContextualReadCloser(context, reader)
+		defer reader.Close()
+		return Read(reader, url.Format(), locate)
+	} else {
+		return nil, nil, err
 	}
 }
 
