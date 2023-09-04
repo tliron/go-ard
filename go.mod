@@ -5,8 +5,8 @@ go 1.21
 require (
 	github.com/beevik/etree v1.2.0
 	github.com/fxamacker/cbor/v2 v2.5.0
-	github.com/tliron/exturl v0.2.5
-	github.com/tliron/kutil v0.2.10
+	github.com/tliron/exturl v0.4.0
+	github.com/tliron/kutil v0.2.11
 	github.com/tliron/yamlkeys v1.3.6
 	gopkg.in/yaml.v3 v3.0.1
 )
