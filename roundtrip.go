@@ -12,8 +12,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Default is CBOR
-func Roundtrip(value Value, format string) (Value, error) {
+// Encodes and then decodes the value via a supported format.
+//
+// Supported formats are "yaml", "json", "xjson", "xml", "cbor", and "messagepack".
+//
+// While this function can be used to "canonicalize" values to ARD, it is
+// generally be more efficient to call [ValidCopy] instead.
+func Roundtrip(value Value, format string, reflector *Reflector) (Value, error) {
 	switch format {
 	case "yaml":
 		return RoundtripYAML(value)
@@ -21,13 +26,13 @@ func Roundtrip(value Value, format string) (Value, error) {
 	case "json":
 		return RoundtripJSON(value)
 
-	case "cjson":
-		return RoundtripCompatibleJSON(value)
+	case "xjson":
+		return RoundtripXJSON(value, reflector)
 
 	case "xml":
-		return RoundtripCompatibleXML(value)
+		return RoundtripXML(value, reflector)
 
-	case "cbor", "":
+	case "cbor":
 		return RoundtripCBOR(value)
 
 	case "messagepack":
@@ -53,20 +58,18 @@ func RoundtripJSON(value Value) (Value, error) {
 	var writer strings.Builder
 	encoder := json.NewEncoder(&writer)
 	if err := encoder.Encode(value); err == nil {
-		value_, _, err := ReadJSON(strings.NewReader(writer.String()), false)
-		return value_, err
+		return ReadJSON(strings.NewReader(writer.String()), true)
 	} else {
 		return nil, err
 	}
 }
 
-func RoundtripCompatibleJSON(value Value) (Value, error) {
-	if value_, err := EnsureCompatibleJSON(value); err == nil {
+func RoundtripXJSON(value Value, reflector *Reflector) (Value, error) {
+	if value_, err := PrepareForEncodingXJSON(value, reflector); err == nil {
 		var writer strings.Builder
 		encoder := json.NewEncoder(&writer)
 		if err := encoder.Encode(value_); err == nil {
-			value__, _, err := ReadCompatibleJSON(strings.NewReader(writer.String()), false)
-			return value__, err
+			return ReadXJSON(strings.NewReader(writer.String()), true)
 		} else {
 			return nil, err
 		}
@@ -75,15 +78,14 @@ func RoundtripCompatibleJSON(value Value) (Value, error) {
 	}
 }
 
-func RoundtripCompatibleXML(value Value) (Value, error) {
-	if value_, err := EnsureCompatibleXML(value); err == nil {
+func RoundtripXML(value Value, reflector *Reflector) (Value, error) {
+	if value_, err := PrepareForEncodingXML(value, reflector); err == nil {
 		var writer strings.Builder
 		if _, err := writer.WriteString(xml.Header); err == nil {
 			encoder := xml.NewEncoder(&writer)
 			encoder.Indent("", "")
 			if err := encoder.Encode(value_); err == nil {
-				value_, _, err := ReadCompatibleXML(strings.NewReader(writer.String()), false)
-				return value_, err
+				return ReadXML(strings.NewReader(writer.String()))
 			} else {
 				return nil, err
 			}
@@ -112,8 +114,7 @@ func RoundtripMessagePack(value Value) (Value, error) {
 	var buffer bytes.Buffer
 	encoder := util.NewMessagePackEncoder(&buffer)
 	if err := encoder.Encode(value); err == nil {
-		value_, _, err := ReadMessagePack(&buffer)
-		return value_, err
+		return ReadMessagePack(&buffer, true)
 	} else {
 		return nil, err
 	}

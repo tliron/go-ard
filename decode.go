@@ -3,66 +3,63 @@ package ard
 import (
 	"bytes"
 	"fmt"
-	"strings"
-
-	"github.com/tliron/kutil/util"
 )
 
-func Decode(code string, format string, locate bool) (Value, Locator, error) {
+// Decodes supported formats to ARD.
+//
+// All resulting maps are guaranteed to be [Map] (and not [StringMap]).
+//
+// Supported formats are "yaml", "json", "xjson", "xml", "cbor", and "messagepack".
+func Decode(code []byte, format string, locate bool) (Value, Locator, error) {
 	switch format {
-	case "yaml", "":
+	case "yaml":
 		return DecodeYAML(code, locate)
 
 	case "json":
-		return DecodeJSON(code, locate)
+		value, err := DecodeJSON(code, false)
+		return value, nil, err
 
-	case "cjson":
-		return DecodeCompatibleJSON(code, locate)
+	case "xjson":
+		value, err := DecodeXJSON(code, false)
+		return value, nil, err
 
 	case "xml":
-		return DecodeCompatibleXML(code, locate)
+		value, err := DecodeXML(code)
+		return value, nil, err
 
 	case "cbor":
-		return DecodeCBOR(code)
+		value, err := DecodeCBOR(code)
+		return value, nil, err
 
 	case "messagepack":
-		return DecodeMessagePack(code)
+		value, err := DecodeMessagePack(code, false)
+		return value, nil, err
 
 	default:
 		return nil, nil, fmt.Errorf("unsupported format: %q", format)
 	}
 }
 
-func DecodeYAML(code string, locate bool) (Value, Locator, error) {
-	return ReadYAML(strings.NewReader(code), locate)
+func DecodeYAML(code []byte, locate bool) (Value, Locator, error) {
+	return ReadYAML(bytes.NewReader(code), locate)
 }
 
-func DecodeJSON(code string, locate bool) (Value, Locator, error) {
-	return ReadJSON(strings.NewReader(code), locate)
+func DecodeJSON(code []byte, useStringMaps bool) (Value, error) {
+	return ReadJSON(bytes.NewReader(code), useStringMaps)
 }
 
-func DecodeCompatibleJSON(code string, locate bool) (Value, Locator, error) {
-	return ReadCompatibleJSON(strings.NewReader(code), locate)
+func DecodeXJSON(code []byte, useStringMaps bool) (Value, error) {
+	return ReadXJSON(bytes.NewReader(code), useStringMaps)
 }
 
-func DecodeCompatibleXML(code string, locate bool) (Value, Locator, error) {
-	return ReadCompatibleXML(strings.NewReader(code), locate)
+func DecodeXML(code []byte) (Value, error) {
+	return ReadXML(bytes.NewReader(code))
 }
 
-// The code should be in Base64
-func DecodeCBOR(code string) (Value, Locator, error) {
-	if bytes_, err := util.FromBase64(code); err == nil {
-		return ReadCBOR(bytes.NewReader(bytes_))
-	} else {
-		return nil, nil, err
-	}
+func DecodeCBOR(code []byte) (Value, error) {
+	return ReadCBOR(bytes.NewReader(code))
 }
 
-// The code should be in Base64
-func DecodeMessagePack(code string) (Value, Locator, error) {
-	if bytes_, err := util.FromBase64(code); err == nil {
-		return ReadMessagePack(bytes.NewReader(bytes_))
-	} else {
-		return nil, nil, err
-	}
+func DecodeMessagePack(code []byte, useStringMaps bool) (Value, error) {
+	return ReadMessagePack(bytes.NewReader(code), useStringMaps)
 }

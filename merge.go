@@ -25,7 +25,7 @@ func MergeMaps(target Map, source Map, mergeLists bool) {
 			}
 		}
 
-		target[key] = SimpleCopy(sourceValue)
+		target[key] = Copy(sourceValue)
 	}
 }
 
@@ -49,7 +49,7 @@ func MergeStringMaps(target StringMap, source StringMap, mergeLists bool) {
 			}
 		}
 
-		target[key] = SimpleCopy(sourceValue)
+		target[key] = Copy(sourceValue)
 	}
 }
 

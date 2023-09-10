@@ -1,5 +1,12 @@
 package ard
 
+// Checks for deep equality between two ARD values.
+//
+// Primitives are compared via the `=` operator.
+//
+// Note that [Map] and [StringMap] are treated as unequal.
+// To gloss over the difference in type, call [CopyStringMapsToMaps]
+// on both values first.
 func Equals(a Value, b Value) bool {
 	switch a_ := a.(type) {
 	case Map:

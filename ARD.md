@@ -1,8 +1,6 @@
 ARD (Agnostic Raw Data)
 =======================
 
-So, what is "agnostic raw data"?
-
 ### Agnostic
 
 ARD comprises data types that are "agnostic", meaning that they can be trivially used by
@@ -104,5 +102,6 @@ arbitrarily complex keys. We solve this by extending ruamel.yaml in our
 ### JavaScript
 
 See the discussion of JSON, above (JSON stands for "JavaScript Object Notation"). A
-straightforward way to work with ARD in JavaScript is via our ARD-compatible JSON conventions.
-However, it may also be possible to create a library of classes to support ARD features.
+straightforward way to work with ARD in JavaScript is via our
+[ARD-compatible extended JSON conventions](xjson.go). However, it may also be possible to create a
+library of classes to support ARD features.

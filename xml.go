@@ -12,30 +12,30 @@ import (
 )
 
 const (
-	CompatibleXMLNilTag           = "nil"
-	CompatibleXMLBytesTag         = "bytes"
-	CompatibleXMLListTag          = "list"
-	CompatibleXMLMapTag           = "map"
-	CompatibleXMLMapEntryTag      = "entry"
-	CompatibleXMLMapEntryKeyTag   = "key"
-	CompatibleXMLMapEntryValueTag = "value"
+	XMLNilTag           = "nil"
+	XMLBytesTag         = "bytes"
+	XMLListTag          = "list"
+	XMLMapTag           = "map"
+	XMLMapEntryTag      = "entry"
+	XMLMapEntryKeyTag   = "key"
+	XMLMapEntryValueTag = "value"
 )
 
-func EnsureCompatibleXML(value Value) (Value, error) {
-	if value_, err := Canonicalize(value); err == nil {
-		return ToCompatibleXML(value_), nil
+func PrepareForEncodingXML(value Value, reflector *Reflector) (any, error) {
+	if value_, err := ValidCopy(value, reflector); err == nil {
+		return PackXML(value_), nil
 	} else {
 		return nil, err
 	}
 }
 
-func ToCompatibleXML(value any) any {
+func PackXML(value Value) any {
 	if value == nil {
-		return CompatibleXMLNil{}
+		return XMLNil{}
 	}
 
 	if bytes, ok := value.([]byte); ok {
-		return CompatibleXMLBytes{bytes}
+		return XMLBytes{bytes}
 	}
 
 	value_ := reflect.ValueOf(value)
@@ -46,37 +46,37 @@ func ToCompatibleXML(value any) any {
 		slice := make([]any, length)
 		for index := 0; index < length; index++ {
 			v := value_.Index(index).Interface()
-			slice[index] = ToCompatibleXML(v)
+			slice[index] = PackXML(v)
 		}
-		return CompatibleXMLList{slice}
+		return XMLList{slice}
 
 	case reflect.Map:
 		// Convert to slice of XMLMapEntry
-		slice := make([]CompatibleXMLMapEntry, value_.Len())
+		slice := make([]XMLMapEntry, value_.Len())
 		for index, key := range value_.MapKeys() {
 			k := yamlkeys.KeyData(key.Interface())
 			v := value_.MapIndex(key).Interface()
-			slice[index] = CompatibleXMLMapEntry{
-				key:   ToCompatibleXML(k),
-				value: ToCompatibleXML(v),
+			slice[index] = XMLMapEntry{
+				key:   PackXML(k),
+				value: PackXML(v),
 			}
 		}
-		return CompatibleXMLMap{slice}
+		return XMLMap{slice}
 	}
 
 	return value
 }
 
-func FromCompatibleXML(element *etree.Element) (any, error) {
+func UnpackXML(element *etree.Element) (Value, error) {
 	switch element.Tag {
-	case CompatibleXMLNilTag:
+	case XMLNilTag:
 		return nil, nil
 
-	case CompatibleXMLListTag:
+	case XMLListTag:
 		children := element.ChildElements()
 		list := make(List, len(children))
 		for index, entry := range children {
-			if entry_, err := FromCompatibleXML(entry); err == nil {
+			if entry_, err := UnpackXML(entry); err == nil {
 				list[index] = entry_
 			} else {
 				return nil, err
@@ -84,10 +84,10 @@ func FromCompatibleXML(element *etree.Element) (any, error) {
 		}
 		return list, nil
 
-	case CompatibleXMLMapTag:
+	case XMLMapTag:
 		map_ := make(Map)
 		for _, entry := range element.ChildElements() {
-			if entry_, err := NewCompatibleXMLMapEntry(entry); err == nil {
+			if entry_, err := NewXMLMapEntry(entry); err == nil {
 				//fmt.Printf("%T\n", entry_.Key)
 				map_[entry_.key] = entry_.value
 			} else {
@@ -149,16 +149,16 @@ func FromCompatibleXML(element *etree.Element) (any, error) {
 }
 
 //
-// CompatibleXMLList
+// XMLList
 //
 
-type CompatibleXMLList struct {
+type XMLList struct {
 	Entries []any
 }
 
-// xml.Marshaler interface
-func (self CompatibleXMLList) MarshalXML(encoder *xml.Encoder, start xml.StartElement) error {
-	listStart := xml.StartElement{Name: xml.Name{Local: CompatibleXMLListTag}}
+// ([xml.Marshaler] interface)
+func (self XMLList) MarshalXML(encoder *xml.Encoder, start xml.StartElement) error {
+	listStart := xml.StartElement{Name: xml.Name{Local: XMLListTag}}
 
 	if err := encoder.EncodeToken(listStart); err == nil {
 		if err := encoder.Encode(self.Entries); err == nil {
@@ -172,15 +172,15 @@ func (self CompatibleXMLList) MarshalXML(encoder *xml.Encoder, start xml.StartEl
 }
 
 //
-// CompatibleXMLNil
+// XMLNil
 //
 
-type CompatibleXMLNil struct{}
+type XMLNil struct{}
 
-var nilStart = xml.StartElement{Name: xml.Name{Local: CompatibleXMLNilTag}}
+var nilStart = xml.StartElement{Name: xml.Name{Local: XMLNilTag}}
 
-// xml.Marshaler interface
-func (self CompatibleXMLNil) MarshalXML(encoder *xml.Encoder, start xml.StartElement) error {
+// ([xml.Marshaler] interface)
+func (self XMLNil) MarshalXML(encoder *xml.Encoder, start xml.StartElement) error {
 	if err := encoder.EncodeToken(nilStart); err == nil {
 		return encoder.EncodeToken(nilStart.End())
 	} else {
@@ -189,17 +189,17 @@ func (self CompatibleXMLNil) MarshalXML(encoder *xml.Encoder, start xml.StartEle
 }
 
 //
-// CompatibleXMLBytes
+// XMLBytes
 //
 
-type CompatibleXMLBytes struct {
+type XMLBytes struct {
 	bytes []byte
 }
 
-var bytesStart = xml.StartElement{Name: xml.Name{Local: CompatibleXMLBytesTag}}
+var bytesStart = xml.StartElement{Name: xml.Name{Local: XMLBytesTag}}
 
-// xml.Marshaler interface
-func (self CompatibleXMLBytes) MarshalXML(encoder *xml.Encoder, start xml.StartElement) error {
+// ([xml.Marshaler] interface)
+func (self XMLBytes) MarshalXML(encoder *xml.Encoder, start xml.StartElement) error {
 	if err := encoder.EncodeToken(bytesStart); err == nil {
 		if err := encoder.EncodeToken(xml.CharData(util.StringToBytes(util.ToBase64(self.bytes)))); err == nil {
 			return encoder.EncodeToken(bytesStart.End())
@@ -212,17 +212,17 @@ func (self CompatibleXMLBytes) MarshalXML(encoder *xml.Encoder, start xml.StartE
 }
 
 //
-// CompatibleXMLMap
+// XMLMap
 //
 
-type CompatibleXMLMap struct {
-	entries []CompatibleXMLMapEntry
+type XMLMap struct {
+	entries []XMLMapEntry
 }
 
-var mapStart = xml.StartElement{Name: xml.Name{Local: CompatibleXMLMapTag}}
+var mapStart = xml.StartElement{Name: xml.Name{Local: XMLMapTag}}
 
-// xml.Marshaler interface
-func (self CompatibleXMLMap) MarshalXML(encoder *xml.Encoder, start xml.StartElement) error {
+// ([xml.Marshaler] interface)
+func (self XMLMap) MarshalXML(encoder *xml.Encoder, start xml.StartElement) error {
 	if err := encoder.EncodeToken(mapStart); err == nil {
 		if err := encoder.Encode(self.entries); err == nil {
 			return encoder.EncodeToken(mapStart.End())
@@ -235,20 +235,20 @@ func (self CompatibleXMLMap) MarshalXML(encoder *xml.Encoder, start xml.StartEle
 }
 
 //
-// CompatibleXMLMapEntry
+// XMLMapEntry
 //
 
-type CompatibleXMLMapEntry struct {
+type XMLMapEntry struct {
 	key   any
 	value any
 }
 
-var mapEntryStart = xml.StartElement{Name: xml.Name{Local: CompatibleXMLMapEntryTag}}
-var keyStart = xml.StartElement{Name: xml.Name{Local: CompatibleXMLMapEntryKeyTag}}
-var valueStart = xml.StartElement{Name: xml.Name{Local: CompatibleXMLMapEntryValueTag}}
+var mapEntryStart = xml.StartElement{Name: xml.Name{Local: XMLMapEntryTag}}
+var keyStart = xml.StartElement{Name: xml.Name{Local: XMLMapEntryKeyTag}}
+var valueStart = xml.StartElement{Name: xml.Name{Local: XMLMapEntryValueTag}}
 
-// xml.Marshaler interface
-func (self CompatibleXMLMapEntry) MarshalXML(encoder *xml.Encoder, start xml.StartElement) error {
+// ([xml.Marshaler] interface)
+func (self XMLMapEntry) MarshalXML(encoder *xml.Encoder, start xml.StartElement) error {
 	if err := encoder.EncodeToken(mapEntryStart); err == nil {
 		if err := encoder.EncodeToken(keyStart); err == nil {
 			if err := encoder.Encode(self.key); err == nil {
@@ -280,20 +280,20 @@ func (self CompatibleXMLMapEntry) MarshalXML(encoder *xml.Encoder, start xml.Sta
 	}
 }
 
-func NewCompatibleXMLMapEntry(element *etree.Element) (CompatibleXMLMapEntry, error) {
-	var self CompatibleXMLMapEntry
+func NewXMLMapEntry(element *etree.Element) (XMLMapEntry, error) {
+	var self XMLMapEntry
 
-	if element.Tag == CompatibleXMLMapEntryTag {
+	if element.Tag == XMLMapEntryTag {
 		for _, child := range element.ChildElements() {
 			switch child.Tag {
-			case CompatibleXMLMapEntryKeyTag:
+			case XMLMapEntryKeyTag:
 				if key, err := getXmlElementSingleChild(child); err == nil {
 					self.key = key
 				} else {
 					return self, err
 				}
 
-			case CompatibleXMLMapEntryValueTag:
+			case XMLMapEntryValueTag:
 				if value, err := getXmlElementSingleChild(child); err == nil {
 					self.value = value
 				} else {
@@ -325,7 +325,7 @@ func getXmlElementSingleChild(element *etree.Element) (any, error) {
 	children := element.ChildElements()
 	length := len(children)
 	if length == 1 {
-		return FromCompatibleXML(children[0])
+		return UnpackXML(children[0])
 	} else if length == 0 {
 		return nil, nil
 	} else {

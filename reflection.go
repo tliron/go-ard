@@ -229,14 +229,14 @@ func (self *Reflector) PackReflect(value Value, packedValue reflect.Value) error
 }
 
 // Converts Go structs to ARD maps
-func (self *Reflector) Unpack(packedValue any) (Value, error) {
-	return self.UnpackReflect(reflect.ValueOf(packedValue))
+func (self *Reflector) Unpack(packedValue any, useStringMaps bool) (Value, error) {
+	return self.UnpackReflect(reflect.ValueOf(packedValue), useStringMaps)
 }
 
 var time_ time.Time
 var timeType = reflect.TypeOf(time_)
 
-func (self *Reflector) UnpackReflect(packedValue reflect.Value) (Value, error) {
+func (self *Reflector) UnpackReflect(packedValue reflect.Value, useStringMaps bool) (Value, error) {
 	if toArd, ok := packedValue.Interface().(ToARD); ok {
 		return toArd.ToARD(self)
 	}
@@ -279,40 +279,71 @@ func (self *Reflector) UnpackReflect(packedValue reflect.Value) (Value, error) {
 		for index := 0; index < length; index++ {
 			value_ := packedValue.Index(index)
 			var err error
-			if list[index], err = self.UnpackReflect(value_); err != nil {
+			if list[index], err = self.UnpackReflect(value_, useStringMaps); err != nil {
 				return nil, fmt.Errorf("list element %d %s", index, err.Error())
 			}
 		}
 		return list, nil
 
 	case reflect.Map:
-		map_ := make(Map)
-		keys := packedValue.MapKeys()
-		for _, key := range keys {
-			if key_, err := self.UnpackReflect(key); err == nil {
-				value_ := packedValue.MapIndex(key)
-				if map_[key_], err = self.UnpackReflect(value_); err != nil {
-					return nil, fmt.Errorf("map value %q %s", key_, err.Error())
+		if useStringMaps {
+			map_ := make(StringMap)
+			keys := packedValue.MapKeys()
+			for _, key := range keys {
+				if key_, err := self.UnpackReflect(key, useStringMaps); err == nil {
+					value_ := packedValue.MapIndex(key)
+					if map_[MapKeyToString(key_)], err = self.UnpackReflect(value_, useStringMaps); err != nil {
+						return nil, fmt.Errorf("map value %q %s", key_, err.Error())
+					}
+				} else {
+					return nil, fmt.Errorf("map key %q %s", key, err.Error())
 				}
-			} else {
-				return nil, fmt.Errorf("map key %q %s", key, err.Error())
 			}
+			return map_, nil
+		} else {
+			map_ := make(Map)
+			keys := packedValue.MapKeys()
+			for _, key := range keys {
+				if key_, err := self.UnpackReflect(key, useStringMaps); err == nil {
+					value_ := packedValue.MapIndex(key)
+					if map_[key_], err = self.UnpackReflect(value_, useStringMaps); err != nil {
+						return nil, fmt.Errorf("map value %q %s", key_, err.Error())
+					}
+				} else {
+					return nil, fmt.Errorf("map key %q %s", key, err.Error())
+				}
+			}
+			return map_, nil
 		}
-		return map_, nil
 
 	case reflect.Struct:
-		map_ := make(Map)
-		for name, field := range self.NewReflectFields(packedType) {
-			value_ := packedValue.FieldByName(field.name)
-			if value__, err := self.UnpackReflect(value_); err == nil {
-				if !field.omitEmpty || !reflection.IsEmpty(value__) {
-					map_[name] = value__
+		if useStringMaps {
+			map_ := make(StringMap)
+			for name, field := range self.NewReflectFields(packedType) {
+				value_ := packedValue.FieldByName(field.name)
+				if value__, err := self.UnpackReflect(value_, useStringMaps); err == nil {
+					if !field.omitEmpty || !reflection.IsEmpty(value__) {
+						map_[name] = value__
+					}
+				} else {
+					return nil, fmt.Errorf("struct field %q %s", field.name, err.Error())
 				}
-			} else {
-				return nil, fmt.Errorf("struct field %q %s", field.name, err.Error())
 			}
+			return map_, nil
+		} else {
+			map_ := make(Map)
+			for name, field := range self.NewReflectFields(packedType) {
+				value_ := packedValue.FieldByName(field.name)
+				if value__, err := self.UnpackReflect(value_, useStringMaps); err == nil {
+					if !field.omitEmpty || !reflection.IsEmpty(value__) {
+						map_[name] = value__
+					}
+				} else {
+					return nil, fmt.Errorf("struct field %q %s", field.name, err.Error())
+				}
+			}
+			return map_, nil
 		}
-		return map_, nil
 
 	default:
 		return nil, fmt.Errorf("unsupported type: %s", packedType.String())

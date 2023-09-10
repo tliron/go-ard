@@ -9,8 +9,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func ToYAMLDocumentNode(value Value, verbose bool) (*yaml.Node, error) {
-	if value_, err := Canonicalize(value); err == nil {
+func ToYAMLDocumentNode(value Value, verbose bool, reflector *Reflector) (*yaml.Node, error) {
+	if value_, err := ValidCopy(value, reflector); err == nil {
 		if node, ok := ToYAMLNode(value_, verbose); ok {
 			return &yaml.Node{
 				Kind:    yaml.DocumentNode,
@@ -34,6 +34,26 @@ func ToYAMLNode(value Value, verbose bool) (*yaml.Node, bool) {
 	// Failsafe schema: https://yaml.org/spec/1.2/spec.html#id2802346
 
 	case Map:
+		node.Kind = yaml.MappingNode
+		node.Tag = "!!map"
+		node.Style = 0
+		node.Content = make([]*yaml.Node, len(value_)*2)
+		index := 0
+		for k, v := range value_ {
+			var ok bool
+			if node.Content[index], ok = ToYAMLNode(k, verbose); ok {
+				index += 1
+				if node.Content[index], ok = ToYAMLNode(v, verbose); ok {
+					index += 1
+				} else {
+					return nil, false
+				}
+			} else {
+				return nil, false
+			}
+		}
+
+	case StringMap:
 		node.Kind = yaml.MappingNode
 		node.Tag = "!!map"
 		node.Style = 0

@@ -7,9 +7,19 @@ Agnostic Raw Data (ARD) for Go
 
 A library to work with non-schematic data and consume it from various standard formats.
 
-What is ARD? See [here](ARD.md).
+What is ARD? See [here](ARD.md). Some people gloss it as "JSON", but that's misleading and
+ultimately unhelpful because JSON is merely a representation format for the data, and a rather
+limited format at that (e.g. it does not preserve the distinction between integers and floats).
 
-This library is [also implemented in Python](https://github.com/tliron/python-ard).
+This library supports several representation formats for ARD:
+
+* [YAML](https://yaml.org/)
+* [JSON](https://www.json.org/), including a [convention for extending JSON](xjson.go) to support all ARD types
+* [XML](https://www.w3.org/XML/) via a conventional schema
+* [CBOR](https://cbor.io/)
+* [MessagePack](https://msgpack.org/)
+
+It is [also implemented in Python](https://github.com/tliron/python-ard).
 
 And check out the [ardconv](https://github.com/tliron/ardconv) ARD conversion tool.
 
@@ -107,7 +117,7 @@ Copy, merge, and compare:
 
 ```go
 func main() {
-	data_ := ard.SimpleCopy(data)
+	data_ := ard.Copy(data).(ard.Map)
 	fmt.Printf("%t\n", ard.Equals(data, data_))
 	ard.MergeMaps(data, ard.Map{"role": "hero", "children": ard.List{"Gollum"}}, true)
 	fmt.Printf("%v\n", data)
@@ -135,7 +145,7 @@ func main() {
 ```
 
 By default go-ard reads maps into `map[any]any`, but you can normalize for either `map[any]any` or
-`map[string]map` (Go's JSON encoder *requires* the latter):
+`map[string]map` (Go's built-in JSON encoder unfortunately *requires* the latter):
 
 ```go
 import "encoding/json"
@@ -147,14 +157,14 @@ var data = ard.Map{ // remember, these are "map[any]any"
 }
 
 func main() {
-	if data_, ok := ard.NormalizeStringMaps(data); ok { // otherwise JSON won't be able to encode the "map[any]any"
+	if data_, ok := ard.CopyMapsToStringMaps(data); ok { // otherwise "encoding/json" won't be able to encode the "map[any]any"
 		json.NewEncoder(os.Stdout).Encode(data_)
 	}
 }
 ```
 
-Introducing "cjson" (Compatible JSON) format that extends JSON with support for missing ARD
-types: integers, unsigned integers, and maps with non-string keys:
+Introducing the "xjson" (eXtended JSON) format that adds support for missing ARD types: integers,
+unsigned integers, and maps with non-string keys:
 
 ```go
 var data = ard.Map{
@@ -164,10 +174,10 @@ var data = ard.Map{
 }
 
 func main() {
-	if data_, ok := ard.ToCompatibleJSON(data); ok { // will also normalize to "map[string]any"
+	if data_, ok := ard.PrepareForEncodingXJSON(data); ok { // will conveniently also normalize to "map[string]any" for "encoding/json" to work
 		if j, err := json.Marshal(data_); err == nil {
 			fmt.Println(string(j)) // {"map":{"age":{"$ard.uinteger":"120"}}}
-			if data__, _, err := ard.Decode(string(j), "cjson", false); err == nil {
+			if data__, _, err := ard.Decode(j, "xjson", false); err == nil {
 				fmt.Printf("%v\n", data__)
 			}
 		}

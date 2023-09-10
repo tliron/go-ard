@@ -14,31 +14,45 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Reads and decodes supported formats to ARD.
+//
+// All resulting maps are guaranteed to be [Map] (and not [StringMap]).
+//
+// When locate is true will also attempt to return a [Locator] for the value if
+// possible, otherwise will return nil.
+//
+// Supported formats are "yaml", "json", "xjson", "xml", "cbor", and "messagepack".
 func Read(reader io.Reader, format string, locate bool) (Value, Locator, error) {
 	switch format {
 	case "yaml", "":
 		return ReadYAML(reader, locate)
 
 	case "json":
-		return ReadJSON(reader, locate)
+		value, err := ReadJSON(reader, false)
+		return value, nil, err
 
-	case "cjson":
-		return ReadCompatibleJSON(reader, locate)
+	case "xjson":
+		value, err := ReadXJSON(reader, false)
+		return value, nil, err
 
 	case "xml":
-		return ReadCompatibleXML(reader, locate)
+		value, err := ReadXML(reader)
+		return value, nil, err
 
 	case "cbor":
-		return ReadCBOR(reader)
+		value, err := ReadCBOR(reader)
+		return value, nil, err
 
 	case "messagepack":
-		return ReadMessagePack(reader)
+		value, err := ReadMessagePack(reader, false)
+		return value, nil, err
 
 	default:
 		return nil, nil, fmt.Errorf("unsupported format: %q", format)
 	}
 }
 
+// Supported formats are "yaml", "json", "xjson", "xml", "cbor", and "messagepack".
 func ReadURL(context contextpkg.Context, url exturl.URL, locate bool) (Value, Locator, error) {
 	if reader, err := url.Open(context); err == nil {
 		reader = util.NewContextualReadCloser(context, reader)
@@ -49,6 +63,17 @@ func ReadURL(context contextpkg.Context, url exturl.URL, locate bool) (Value, Lo
 	}
 }
 
+// Reads YAML from an [io.Reader] and decodes it into an ARD [Value].
+// If more than one YAML document is present (i.e. separated by `---`)
+// then only the first will be decoded with the remainder ignored.
+//
+// When locate is true will also return a [Locator] for the value,
+// otherwise will return nil.
+//
+// Note that the YAML implementation uses the [yamlkeys] library, so
+// that arbitrarily complex map keys are supported and decoded into
+// ARD [Map]. If you need to manipulate these maps you should use the
+// [yamlkeys] utility functions.
 func ReadYAML(reader io.Reader, locate bool) (Value, Locator, error) {
 	var node yaml.Node
 	decoder := yaml.NewDecoder(reader)
@@ -71,62 +96,81 @@ func ReadAllYAML(reader io.Reader) (List, error) {
 	return yamlkeys.DecodeAll(reader)
 }
 
-func ReadJSON(reader io.Reader, locate bool) (Value, Locator, error) {
+// Reads JSON from an [io.Reader] and decodes it into an ARD [Value].
+//
+// If useStringMaps is true returns maps as [StringMap], otherwise they will
+// be [Map].
+func ReadJSON(reader io.Reader, useStringMaps bool) (Value, error) {
 	var value Value
 	decoder := json.NewDecoder(reader)
 	if err := decoder.Decode(&value); err == nil {
 		// The JSON decoder uses StringMaps, not Maps
-		value, _ := NormalizeMaps(value)
-		return value, nil, nil
+		if !useStringMaps {
+			value, _ = ConvertStringMapsToMaps(value)
+		}
+		return value, nil
 	} else {
-		return nil, nil, err
+		return nil, err
 	}
 }
 
-func ReadCompatibleJSON(reader io.Reader, locate bool) (Value, Locator, error) {
+// Reads JSON from an [io.Reader] and decodes it into an ARD [Value] while
+// interpreting the xjson extensions.
+//
+// If useStringMaps is true returns maps as [StringMap], otherwise they will
+// be [Map].
+func ReadXJSON(reader io.Reader, useStringMaps bool) (Value, error) {
 	var value Value
 	decoder := json.NewDecoder(reader)
 	if err := decoder.Decode(&value); err == nil {
-		value, _ = FromCompatibleJSON(value)
-		return value, nil, nil
+		value, _ = UnpackXJSON(value, useStringMaps)
+		return value, nil
 	} else {
-		return nil, nil, err
+		return nil, err
 	}
 }
 
-func ReadCompatibleXML(reader io.Reader, locate bool) (Value, Locator, error) {
+// Reads XML from an [io.Reader] and decodes it into an ARD [Value].
+func ReadXML(reader io.Reader) (Value, error) {
 	document := etree.NewDocument()
 	if _, err := document.ReadFrom(reader); err == nil {
 		elements := document.ChildElements()
 		if length := len(elements); length == 1 {
-			value, err := FromCompatibleXML(elements[0])
-			return value, nil, err
+			value, err := UnpackXML(elements[0])
+			return value, err
 		} else {
-			return nil, nil, fmt.Errorf("unsupported XML: %d documents", length)
+			return nil, fmt.Errorf("unsupported XML: %d documents", length)
 		}
 	} else {
-		return nil, nil, err
+		return nil, err
 	}
 }
 
-func ReadCBOR(reader io.Reader) (Value, Locator, error) {
+// Reads CBOR from an [io.Reader] and decodes it into an ARD [Value].
+func ReadCBOR(reader io.Reader) (Value, error) {
 	var value Value
 	decoder := cbor.NewDecoder(reader)
 	if err := decoder.Decode(&value); err == nil {
-		return value, nil, nil
+		return value, nil
 	} else {
-		return nil, nil, err
+		return nil, err
 	}
 }
 
-func ReadMessagePack(reader io.Reader) (Value, Locator, error) {
+// Reads CBOR from an [io.Reader] and decodes it into an ARD [Value].
+//
+// If useStringMaps is true returns maps as [StringMap], otherwise they will
+// be [Map].
+func ReadMessagePack(reader io.Reader, useStringMaps bool) (Value, error) {
 	var value Value
 	decoder := util.NewMessagePackDecoder(reader)
 	if err := decoder.Decode(&value); err == nil {
 		// The MessagePack decoder uses StringMaps, not Maps
-		value, _ := NormalizeMaps(value)
-		return value, nil, nil
+		if !useStringMaps {
+			value, _ = ConvertStringMapsToMaps(value)
+		}
+		return value, nil
 	} else {
-		return nil, nil, err
+		return nil, err
 	}
 }
