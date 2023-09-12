@@ -28,11 +28,11 @@ func Decode(code []byte, format string, locate bool) (Value, Locator, error) {
 		return value, nil, err
 
 	case "cbor":
-		value, err := DecodeCBOR(code)
+		value, err := DecodeCBOR(code, false)
 		return value, nil, err
 
 	case "messagepack":
-		value, err := DecodeMessagePack(code, false)
+		value, err := DecodeMessagePack(code, false, false)
 		return value, nil, err
 
 	default:
@@ -56,10 +56,10 @@ func DecodeXML(code []byte) (Value, error) {
 	return ReadXML(bytes.NewReader(code))
 }
 
-func DecodeCBOR(code []byte) (Value, error) {
-	return ReadCBOR(bytes.NewReader(code))
+func DecodeCBOR(code []byte, base64 bool) (Value, error) {
+	return ReadCBOR(bytes.NewReader(code), base64)
 }
 
-func DecodeMessagePack(code []byte, useStringMaps bool) (Value, error) {
-	return ReadMessagePack(bytes.NewReader(code), useStringMaps)
+func DecodeMessagePack(code []byte, base64 bool, useStringMaps bool) (Value, error) {
+	return ReadMessagePack(bytes.NewReader(code), base64, useStringMaps)
 }

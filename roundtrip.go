@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/fxamacker/cbor/v2"
-	"github.com/tliron/kutil/util"
 	"gopkg.in/yaml.v3"
 )
 
@@ -44,10 +43,10 @@ func Roundtrip(value Value, format string, reflector *Reflector) (Value, error) 
 }
 
 func RoundtripYAML(value Value) (Value, error) {
-	var writer strings.Builder
-	encoder := yaml.NewEncoder(&writer)
+	var builder strings.Builder
+	encoder := yaml.NewEncoder(&builder)
 	if err := encoder.Encode(value); err == nil {
-		value_, _, err := ReadYAML(strings.NewReader(writer.String()), false)
+		value_, _, err := ReadYAML(strings.NewReader(builder.String()), false)
 		return value_, err
 	} else {
 		return nil, err
@@ -55,10 +54,10 @@ func RoundtripYAML(value Value) (Value, error) {
 }
 
 func RoundtripJSON(value Value) (Value, error) {
-	var writer strings.Builder
-	encoder := json.NewEncoder(&writer)
+	var builder strings.Builder
+	encoder := json.NewEncoder(&builder)
 	if err := encoder.Encode(value); err == nil {
-		return ReadJSON(strings.NewReader(writer.String()), true)
+		return ReadJSON(strings.NewReader(builder.String()), true)
 	} else {
 		return nil, err
 	}
@@ -66,10 +65,10 @@ func RoundtripJSON(value Value) (Value, error) {
 
 func RoundtripXJSON(value Value, reflector *Reflector) (Value, error) {
 	if value_, err := PrepareForEncodingXJSON(value, reflector); err == nil {
-		var writer strings.Builder
-		encoder := json.NewEncoder(&writer)
+		var builder strings.Builder
+		encoder := json.NewEncoder(&builder)
 		if err := encoder.Encode(value_); err == nil {
-			return ReadXJSON(strings.NewReader(writer.String()), true)
+			return ReadXJSON(strings.NewReader(builder.String()), true)
 		} else {
 			return nil, err
 		}
@@ -112,9 +111,9 @@ func RoundtripCBOR(value Value) (Value, error) {
 
 func RoundtripMessagePack(value Value) (Value, error) {
 	var buffer bytes.Buffer
-	encoder := util.NewMessagePackEncoder(&buffer)
+	encoder := NewMessagePackEncoder(&buffer)
 	if err := encoder.Encode(value); err == nil {
-		return ReadMessagePack(&buffer, true)
+		return ReadMessagePack(&buffer, false, true)
 	} else {
 		return nil, err
 	}

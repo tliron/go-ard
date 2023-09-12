@@ -6,8 +6,9 @@ require (
 	github.com/beevik/etree v1.2.0
 	github.com/fxamacker/cbor/v2 v2.5.0
 	github.com/tliron/exturl v0.4.0
-	github.com/tliron/kutil v0.2.11
+	github.com/tliron/kutil v0.3.2
 	github.com/tliron/yamlkeys v1.3.6
+	github.com/vmihailenco/msgpack/v5 v5.3.5
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -52,16 +53,15 @@ require (
 	github.com/skeema/knownhosts v1.2.0 // indirect
 	github.com/tliron/commonlog v0.1.1 // indirect
 	github.com/vbatts/tar-split v0.11.3 // indirect
-	github.com/vmihailenco/msgpack/v5 v5.3.5 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
-	golang.org/x/crypto v0.12.0 // indirect
+	golang.org/x/crypto v0.13.0 // indirect
 	golang.org/x/mod v0.10.0 // indirect
 	golang.org/x/net v0.13.0 // indirect
 	golang.org/x/sync v0.2.0 // indirect
-	golang.org/x/sys v0.11.0 // indirect
-	golang.org/x/term v0.11.0 // indirect
+	golang.org/x/sys v0.12.0 // indirect
+	golang.org/x/term v0.12.0 // indirect
 	golang.org/x/tools v0.9.1 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )

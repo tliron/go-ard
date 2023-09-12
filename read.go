@@ -1,6 +1,7 @@
 package ard
 
 import (
+	"bytes"
 	contextpkg "context"
 	"encoding/json"
 	"fmt"
@@ -24,7 +25,7 @@ import (
 // Supported formats are "yaml", "json", "xjson", "xml", "cbor", and "messagepack".
 func Read(reader io.Reader, format string, locate bool) (Value, Locator, error) {
 	switch format {
-	case "yaml", "":
+	case "yaml":
 		return ReadYAML(reader, locate)
 
 	case "json":
@@ -40,11 +41,11 @@ func Read(reader io.Reader, format string, locate bool) (Value, Locator, error) 
 		return value, nil, err
 
 	case "cbor":
-		value, err := ReadCBOR(reader)
+		value, err := ReadCBOR(reader, false)
 		return value, nil, err
 
 	case "messagepack":
-		value, err := ReadMessagePack(reader, false)
+		value, err := ReadMessagePack(reader, false, false)
 		return value, nil, err
 
 	default:
@@ -53,11 +54,17 @@ func Read(reader io.Reader, format string, locate bool) (Value, Locator, error) 
 }
 
 // Supported formats are "yaml", "json", "xjson", "xml", "cbor", and "messagepack".
-func ReadURL(context contextpkg.Context, url exturl.URL, locate bool) (Value, Locator, error) {
+func ReadURL(context contextpkg.Context, url exturl.URL, fallbackFormat string, locate bool) (Value, Locator, error) {
 	if reader, err := url.Open(context); err == nil {
 		reader = util.NewContextualReadCloser(context, reader)
 		defer reader.Close()
-		return Read(reader, url.Format(), locate)
+
+		format := url.Format()
+		if format == "" {
+			format = fallbackFormat
+		}
+
+		return Read(reader, format, locate)
 	} else {
 		return nil, nil, err
 	}
@@ -147,7 +154,14 @@ func ReadXML(reader io.Reader) (Value, error) {
 }
 
 // Reads CBOR from an [io.Reader] and decodes it into an ARD [Value].
-func ReadCBOR(reader io.Reader) (Value, error) {
+func ReadCBOR(reader io.Reader, base64 bool) (Value, error) {
+	if base64 {
+		var err error
+		if reader, err = fromBase64(reader); err != nil {
+			return nil, err
+		}
+	}
+
 	var value Value
 	decoder := cbor.NewDecoder(reader)
 	if err := decoder.Decode(&value); err == nil {
@@ -161,15 +175,34 @@ func ReadCBOR(reader io.Reader) (Value, error) {
 //
 // If useStringMaps is true returns maps as [StringMap], otherwise they will
 // be [Map].
-func ReadMessagePack(reader io.Reader, useStringMaps bool) (Value, error) {
+func ReadMessagePack(reader io.Reader, base64 bool, useStringMaps bool) (Value, error) {
+	if base64 {
+		var err error
+		if reader, err = fromBase64(reader); err != nil {
+			return nil, err
+		}
+	}
+
 	var value Value
-	decoder := util.NewMessagePackDecoder(reader)
+	decoder := NewMessagePackDecoder(reader)
 	if err := decoder.Decode(&value); err == nil {
 		// The MessagePack decoder uses StringMaps, not Maps
 		if !useStringMaps {
 			value, _ = ConvertStringMapsToMaps(value)
 		}
 		return value, nil
+	} else {
+		return nil, err
+	}
+}
+
+func fromBase64(reader io.Reader) (io.Reader, error) {
+	if b64, err := io.ReadAll(reader); err == nil {
+		if code, err := util.FromBase64(util.BytesToString(b64)); err == nil {
+			return bytes.NewReader(code), nil
+		} else {
+			return nil, err
+		}
 	} else {
 		return nil, err
 	}
