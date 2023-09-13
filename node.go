@@ -1,6 +1,8 @@
 package ard
 
 import (
+	"strings"
+
 	"github.com/tliron/yamlkeys"
 )
 
@@ -76,6 +78,66 @@ func (self *Node) Put(key string, value Value) bool {
 			return true
 		}
 	}
+	return false
+}
+
+func (self *Node) PutNested(key string, value Value) bool {
+	if self != NoNode {
+		switch map_ := self.Value.(type) {
+		case StringMap:
+			path := strings.Split(key, ".")
+			last := len(path) - 1
+
+			if last == -1 {
+				return false
+			}
+
+			if last > 0 {
+				for _, lastPath := range path[:last] {
+					if value_, ok := map_[lastPath]; ok {
+						if map_, ok = value_.(StringMap); !ok {
+							return false
+						}
+					} else {
+						map__ := make(StringMap)
+						map_[lastPath] = map__
+						map_ = map__
+					}
+				}
+			}
+
+			map_[path[last]] = value
+
+			return true
+
+		case Map:
+			path := strings.Split(key, ".")
+			last := len(path) - 1
+
+			if last == -1 {
+				return false
+			}
+
+			if last > 0 {
+				for _, lastPath := range path[:last] {
+					if value_, ok := map_[lastPath]; ok {
+						if map_, ok = value_.(Map); !ok {
+							return false
+						}
+					} else {
+						map__ := make(Map)
+						map_[lastPath] = map__
+						map_ = map__
+					}
+				}
+			}
+
+			map_[path[last]] = value
+
+			return true
+		}
+	}
+
 	return false
 }
 
