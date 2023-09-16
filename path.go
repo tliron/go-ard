@@ -11,16 +11,16 @@ import (
 
 type PathElement struct {
 	Type  PathElementType
-	Value any // string for FieldPathType and MapPathType, int for ListPathType and SequencedListPathType
+	Value any // string for FieldPathType and MapPathType; int for ListPathType and SequencedListPathType
 }
 
-type PathElementType uint8
+type PathElementType int
 
 const (
-	FieldPathType = iota
-	MapPathType
-	ListPathType
-	SequencedListPathType
+	FieldPathType         PathElementType = 0
+	MapPathType           PathElementType = 1
+	ListPathType          PathElementType = 2
+	SequencedListPathType PathElementType = 3
 )
 
 func NewFieldPathElement(name string) PathElement {
@@ -46,11 +46,12 @@ func NewSequencedListPathElement(index int) PathElement {
 type Path []PathElement
 
 func (self Path) Append(element PathElement) Path {
-	length := len(self)
+	return append(self, element)
+	/*length := len(self)
 	path := make(Path, length+1)
 	copy(path, self)
 	path[length] = element
-	return path
+	return path*/
 }
 
 func (self Path) AppendField(name string) Path {
@@ -71,7 +72,7 @@ func (self Path) AppendSequencedList(index int) Path {
 
 var fieldPathElementEscapeRe = regexp.MustCompile(`([\".\[\]{}])`)
 
-// fmt.Stringer interface
+// ([fmt.Stringer] interface)
 func (self Path) String() string {
 	var path string
 

@@ -1,7 +1,6 @@
 package ard
 
 import (
-	"bytes"
 	contextpkg "context"
 	"encoding/json"
 	"fmt"
@@ -19,8 +18,8 @@ import (
 //
 // All resulting maps are guaranteed to be [Map] (and not [StringMap]).
 //
-// When locate is true will also attempt to return a [Locator] for the value if
-// possible, otherwise will return nil.
+// If locate is true then a [Locator] will be returned if possible.
+// Currently only YAML decoding supports this feature.
 //
 // Supported formats are "yaml", "json", "xjson", "xml", "cbor", and "messagepack".
 func Read(reader io.Reader, format string, locate bool) (Value, Locator, error) {
@@ -53,24 +52,34 @@ func Read(reader io.Reader, format string, locate bool) (Value, Locator, error) 
 	}
 }
 
-// Supported formats are "yaml", "json", "xjson", "xml", "cbor", and "messagepack".
-func ReadURL(context contextpkg.Context, url exturl.URL, fallbackFormat string, locate bool) (Value, Locator, error) {
+// Convenience function to read from a URL. Calls [Read].
+//
+// When forceFormat is true the format argument will be used.
+// When it's false the format will be attempted to be extracted from
+// the URL using [URL.Format]. If it can't be determined then the
+// format argument will be used as a fallback.
+func ReadURL(context contextpkg.Context, url exturl.URL, format string, forceFormat bool, locate bool) (Value, Locator, error) {
 	if reader, err := url.Open(context); err == nil {
 		reader = util.NewContextualReadCloser(context, reader)
 		defer reader.Close()
 
-		format := url.Format()
-		if format == "" {
-			format = fallbackFormat
+		var format_ string
+		if forceFormat {
+			format_ = format
+		} else {
+			format_ = url.Format()
+			if format_ == "" {
+				format_ = format
+			}
 		}
 
-		return Read(reader, format, locate)
+		return Read(reader, format_, locate)
 	} else {
 		return nil, nil, err
 	}
 }
 
-// Reads YAML from an [io.Reader] and decodes it into an ARD [Value].
+// Reads YAML from an [io.Reader] and decodes it to an ARD [Value].
 // If more than one YAML document is present (i.e. separated by `---`)
 // then only the first will be decoded with the remainder ignored.
 //
@@ -103,7 +112,7 @@ func ReadAllYAML(reader io.Reader) (List, error) {
 	return yamlkeys.DecodeAll(reader)
 }
 
-// Reads JSON from an [io.Reader] and decodes it into an ARD [Value].
+// Reads JSON from an [io.Reader] and decodes it to an ARD [Value].
 //
 // If useStringMaps is true returns maps as [StringMap], otherwise they will
 // be [Map].
@@ -121,8 +130,8 @@ func ReadJSON(reader io.Reader, useStringMaps bool) (Value, error) {
 	}
 }
 
-// Reads JSON from an [io.Reader] and decodes it into an ARD [Value] while
-// interpreting the xjson extensions.
+// Reads JSON from an [io.Reader] and decodes it to an ARD [Value] while
+// interpreting the XJSON extensions.
 //
 // If useStringMaps is true returns maps as [StringMap], otherwise they will
 // be [Map].
@@ -137,7 +146,9 @@ func ReadXJSON(reader io.Reader, useStringMaps bool) (Value, error) {
 	}
 }
 
-// Reads XML from an [io.Reader] and decodes it into an ARD [Value].
+// Reads XML from an [io.Reader] and decodes it to an ARD [Value].
+//
+// A specific schema is expected (currently undocumented).
 func ReadXML(reader io.Reader) (Value, error) {
 	document := etree.NewDocument()
 	if _, err := document.ReadFrom(reader); err == nil {
@@ -153,11 +164,14 @@ func ReadXML(reader io.Reader) (Value, error) {
 	}
 }
 
-// Reads CBOR from an [io.Reader] and decodes it into an ARD [Value].
+// Reads CBOR from an [io.Reader] and decodes it to an ARD [Value].
+//
+// If base64 is true then the data will first be fully read and decoded from
+// Base64 to bytes.
 func ReadCBOR(reader io.Reader, base64 bool) (Value, error) {
 	if base64 {
 		var err error
-		if reader, err = fromBase64(reader); err != nil {
+		if reader, err = readBase64(reader); err != nil {
 			return nil, err
 		}
 	}
@@ -171,14 +185,17 @@ func ReadCBOR(reader io.Reader, base64 bool) (Value, error) {
 	}
 }
 
-// Reads CBOR from an [io.Reader] and decodes it into an ARD [Value].
+// Reads MessagePack from an [io.Reader] and decodes it to an ARD [Value].
+//
+// If base64 is true then the data will first be fully read and decoded from
+// Base64 to bytes.
 //
 // If useStringMaps is true returns maps as [StringMap], otherwise they will
 // be [Map].
 func ReadMessagePack(reader io.Reader, base64 bool, useStringMaps bool) (Value, error) {
 	if base64 {
 		var err error
-		if reader, err = fromBase64(reader); err != nil {
+		if reader, err = readBase64(reader); err != nil {
 			return nil, err
 		}
 	}
@@ -191,18 +208,6 @@ func ReadMessagePack(reader io.Reader, base64 bool, useStringMaps bool) (Value, 
 			value, _ = ConvertStringMapsToMaps(value)
 		}
 		return value, nil
-	} else {
-		return nil, err
-	}
-}
-
-func fromBase64(reader io.Reader) (io.Reader, error) {
-	if b64, err := io.ReadAll(reader); err == nil {
-		if code, err := util.FromBase64(util.BytesToString(b64)); err == nil {
-			return bytes.NewReader(code), nil
-		} else {
-			return nil, err
-		}
 	} else {
 		return nil, err
 	}

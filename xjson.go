@@ -30,13 +30,25 @@ const (
 	XJSONMapCode      = "$ard.map"
 )
 
-func PrepareForEncodingXJSON(value Value, reflector *Reflector) (any, error) {
-	if value_, err := ValidCopyStringMapsToMaps(value, reflector); err == nil {
-		value_, _ = PackXJSON(value_)
-		return value_, nil
-	} else {
-		return nil, err
+// Prepares an ARD [Value] for encoding via [xml.Encoder].
+//
+// If inPlace is false then the function is non-destructive:
+// the returned data structure is a [ValidCopy] of the value
+// argument. Otherwise, the value may be changed during
+// preparation.
+//
+// The reflector argument can be nil, in which case a
+// default reflector will be used.
+func PrepareForEncodingXJSON(value Value, inPlace bool, reflector *Reflector) (any, error) {
+	if !inPlace {
+		var err error
+		if value, err = ValidCopy(value, reflector); err != nil {
+			return nil, err
+		}
 	}
+
+	value, _ = PackXJSON(value)
+	return value, nil
 }
 
 func PackXJSON(value Value) (any, bool) {

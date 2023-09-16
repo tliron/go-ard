@@ -3,6 +3,8 @@ package ard
 import (
 	"fmt"
 	"time"
+
+	"github.com/tliron/kutil/util"
 )
 
 //
@@ -30,6 +32,11 @@ const (
 	TypeTimestamp TypeName = "ard.timestamp"
 )
 
+// Returns a canonical name for all supported ARD types, including
+// primitives, [Map], [List], and [time.Time]. Note that [StringMap]
+// is not supported by this function.
+//
+// Unspported types will use [fmt.Sprintf]("%T").
 func GetTypeName(value Value) TypeName {
 	switch value.(type) {
 	case Map:
@@ -82,143 +89,78 @@ var TypeValidators = map[TypeName]TypeValidator{
 	TypeList:      IsList,
 	TypeString:    IsString,
 	TypeBoolean:   IsBoolean,
-	TypeInteger:   IsInteger,
-	TypeFloat:     IsFloat,
+	TypeInteger:   util.IsInteger,
+	TypeFloat:     util.IsFloat,
 	TypeNull:      IsNull,
 	TypeBytes:     IsBytes,
 	TypeTimestamp: IsTimestamp,
 }
 
-// Map = map[any]any
+// Returns true if value is a [Map] (map[any]any).
+//
+// ([TypeValidator] signature)
 func IsMap(value Value) bool {
 	_, ok := value.(Map)
 	return ok
 }
 
-// List = []any
+// Returns true if value is a [List] ([]any).
+//
+// ([TypeValidator] signature)
 func IsList(value Value) bool {
 	_, ok := value.(List)
 	return ok
 }
 
-// string
+// Returns true if value is a [string].
+//
+// ([TypeValidator] signature)
 func IsString(value Value) bool {
 	_, ok := value.(string)
 	return ok
 }
 
-// bool
+// Returns true if value is a [bool].
+//
+// ([TypeValidator] signature)
 func IsBoolean(value Value) bool {
 	_, ok := value.(bool)
 	return ok
 }
 
-// int64, int32, int16, int8, int, uint64, uint32, uint16, uint8, uint
-func IsInteger(value Value) bool {
-	switch value.(type) {
-	case int64, int32, int16, int8, int, uint64, uint32, uint16, uint8, uint:
-		return true
-	}
-	return false
-}
-
-// float64, float32
-func IsFloat(value Value) bool {
-	switch value.(type) {
-	case float64, float32:
-		return true
-	}
-	return false
-}
-
+// Returns true if value is nil.
+//
+// ([TypeValidator] signature)
 func IsNull(value Value) bool {
 	return value == nil
 }
 
+// Returns true if value is []byte.
+//
+// ([TypeValidator] signature)
 func IsBytes(value Value) bool {
 	_, ok := value.([]byte)
 	return ok
 }
 
-// time.Time
+// Returns true if value is a [time.Time].
+//
+// ([TypeValidator] signature)
 func IsTimestamp(value Value) bool {
 	_, ok := value.(time.Time)
 	return ok
 }
 
+// Returns true if value is a [string], [bool], [int64], [int32], [int16], [int8], [int],
+// [uint64], [uint32], [uint16], [uint8], [uint], [float64], [float32], nil, []byte, or
+// [time.Time].
+//
+// ([TypeValidator] signature)
 func IsPrimitiveType(value Value) bool {
 	switch value.(type) {
 	case string, bool, int64, int32, int16, int8, int, uint64, uint32, uint16, uint8, uint, float64, float32, nil, []byte, time.Time:
 		return true
 	default:
 		return false
-	}
-}
-
-// int64, int32, int16, int8, int
-func ToInt64(value Value) int64 {
-	switch value_ := value.(type) {
-	case int64:
-		return value_
-	case int32:
-		return int64(value_)
-	case int16:
-		return int64(value_)
-	case int8:
-		return int64(value_)
-	case int:
-		return int64(value_)
-	case uint64:
-		return int64(value_)
-	case uint32:
-		return int64(value_)
-	case uint16:
-		return int64(value_)
-	case uint8:
-		return int64(value_)
-	case uint:
-		return int64(value_)
-	default:
-		panic(fmt.Sprintf("not an integer: %T", value))
-	}
-}
-
-// uint64, uint32, uint16, uint8, uint
-func ToUInt64(value Value) uint64 {
-	switch value_ := value.(type) {
-	case uint64:
-		return value_
-	case uint32:
-		return uint64(value_)
-	case uint16:
-		return uint64(value_)
-	case uint8:
-		return uint64(value_)
-	case uint:
-		return uint64(value_)
-	case int64:
-		return uint64(value_)
-	case int32:
-		return uint64(value_)
-	case int16:
-		return uint64(value_)
-	case int8:
-		return uint64(value_)
-	case int:
-		return uint64(value_)
-	default:
-		panic(fmt.Sprintf("not an integer: %T", value))
-	}
-}
-
-// float64, float32
-func ToFloat64(value Value) float64 {
-	switch value_ := value.(type) {
-	case float64:
-		return value_
-	case float32:
-		return float64(value_)
-	default:
-		panic(fmt.Sprintf("not a float: %T", value))
 	}
 }

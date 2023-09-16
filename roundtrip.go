@@ -64,7 +64,7 @@ func RoundtripJSON(value Value) (Value, error) {
 }
 
 func RoundtripXJSON(value Value, reflector *Reflector) (Value, error) {
-	if value_, err := PrepareForEncodingXJSON(value, reflector); err == nil {
+	if value_, err := PrepareForEncodingXJSON(value, false, reflector); err == nil {
 		var builder strings.Builder
 		encoder := json.NewEncoder(&builder)
 		if err := encoder.Encode(value_); err == nil {
@@ -78,7 +78,7 @@ func RoundtripXJSON(value Value, reflector *Reflector) (Value, error) {
 }
 
 func RoundtripXML(value Value, reflector *Reflector) (Value, error) {
-	if value_, err := PrepareForEncodingXML(value, reflector); err == nil {
+	if value_, err := PrepareForEncodingXML(value, false, reflector); err == nil {
 		var writer strings.Builder
 		if _, err := writer.WriteString(xml.Header); err == nil {
 			encoder := xml.NewEncoder(&writer)

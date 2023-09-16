@@ -85,6 +85,8 @@ func ValidateXML(code []byte) error {
 	}
 }
 
+// If base64 is true then the data will first be fully read and decoded from
+// Base64 to bytes.
 func ValidateCBOR(code []byte, base64 bool) error {
 	if base64 {
 		var err error
@@ -101,6 +103,8 @@ func ValidateCBOR(code []byte, base64 bool) error {
 	}
 }
 
+// If base64 is true then the data will first be fully read and decoded from
+// Base64 to bytes.
 func ValidateMessagePack(code []byte, base64 bool) error {
 	if base64 {
 		var err error

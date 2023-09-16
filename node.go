@@ -2,6 +2,8 @@ package ard
 
 import (
 	"strconv"
+
+	"github.com/tliron/kutil/util"
 )
 
 //
@@ -21,6 +23,8 @@ func NewNode(data any) *Node {
 	return &Node{data, nil, "", false, false}
 }
 
+// This singleton is returned from all node functions when
+// no node is found.
 var NoNode = &Node{nil, nil, "", false, false}
 
 // Returns a copy of this node for which nil values are allowed and interpreted as
@@ -29,6 +33,7 @@ func (self *Node) NilMeansZero() *Node {
 	if self != NoNode {
 		return &Node{self.Value, self.container, self.key, true, self.convertSimilar}
 	}
+
 	return NoNode
 }
 
@@ -39,6 +44,7 @@ func (self *Node) ConvertSimilar() *Node {
 	if self != NoNode {
 		return &Node{self.Value, self.container, self.key, self.nilMeansZero, true}
 	}
+
 	return NoNode
 }
 
@@ -46,6 +52,7 @@ func (self *Node) ConvertSimilar() *Node {
 // [NoNode] if a key is not found.
 func (self *Node) Get(keys ...string) *Node {
 	self_ := self
+
 	if self_ != NoNode {
 		for _, key := range keys {
 			switch map_ := self_.Value.(type) {
@@ -68,6 +75,7 @@ func (self *Node) Get(keys ...string) *Node {
 			}
 		}
 	}
+
 	return self_
 }
 
@@ -85,6 +93,7 @@ func (self *Node) Put(key string, value Value) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -163,9 +172,11 @@ func (self *Node) EnsureMap(keys ...string) (Map, bool) {
 					map_ = map__
 				}
 			}
+
 			return map_, true
 		}
 	}
+
 	return nil, false
 }
 
@@ -181,21 +192,44 @@ func (self *Node) Append(value Value) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
 // Returns []byte, true if the node is []byte.
 //
+// If [Node.ConvertSimilar] was called and the node is a string
+// then will attempt to decode it as base64, with failures returning
+// false, false.
+//
 // By default will fail on nil values. Call [Node.NilMeansZero]
 // to interpret nil as an empty []byte.
 func (self *Node) Bytes() ([]byte, bool) {
 	if self != NoNode {
-		if self.nilMeansZero && (self.Value == nil) {
-			return nil, true
+		switch value := self.Value.(type) {
+		case []byte:
+			return value, true
+
+		case nil:
+			if self.nilMeansZero {
+				return []byte{}, true
+			}
+
+		default:
+			if self.convertSimilar {
+				if string_, ok := self.Value.(string); ok {
+					if value_, err := util.FromBase64(string_); err == nil {
+						return value_, true
+					} else {
+						return nil, false
+					}
+				} else {
+					return nil, false
+				}
+			}
 		}
-		value, ok := self.Value.([]byte)
-		return value, ok
 	}
+
 	return nil, false
 }
 
@@ -203,21 +237,28 @@ func (self *Node) Bytes() ([]byte, bool) {
 //
 // If [Node.ConvertSimilar] was called then will convert any value
 // to a string representation and return true (unless we are [NoNode]).
-// Values are converted using [MapKeyToString].
+// Values are converted using [ValueToString].
 //
 // By default will fail on nil values. Call [Node.NilMeansZero]
 // to interpret nil as an empty string.
 func (self *Node) String() (string, bool) {
 	if self != NoNode {
-		if self.nilMeansZero && (self.Value == nil) {
-			return "", true
+		switch value := self.Value.(type) {
+		case string:
+			return value, true
+
+		case nil:
+			if self.nilMeansZero {
+				return "", true
+			}
+
+		default:
+			if self.convertSimilar {
+				return ValueToString(value), true
+			}
 		}
-		value, ok := self.Value.(string)
-		if !ok && self.convertSimilar {
-			return MapKeyToString(value), true
-		}
-		return value, ok
 	}
+
 	return "", false
 }
 
@@ -233,9 +274,6 @@ func (self *Node) String() (string, bool) {
 // to interpret nil as 0.
 func (self *Node) Integer() (int64, bool) {
 	if self != NoNode {
-		if self.nilMeansZero && (self.Value == nil) {
-			return 0, true
-		}
 		switch value := self.Value.(type) {
 		case int64:
 			return value, true
@@ -247,26 +285,19 @@ func (self *Node) Integer() (int64, bool) {
 			return int64(value), true
 		case int:
 			return int64(value), true
-		}
-		if self.convertSimilar {
-			switch value := self.Value.(type) {
-			case uint64:
-				return int64(value), true
-			case uint32:
-				return int64(value), true
-			case uint16:
-				return int64(value), true
-			case uint8:
-				return int64(value), true
-			case uint:
-				return int64(value), true
-			case float64:
-				return int64(value), true
-			case float32:
-				return int64(value), true
+
+		case nil:
+			if self.nilMeansZero {
+				return 0, true
+			}
+
+		default:
+			if self.convertSimilar {
+				return util.ToInt64(self.Value)
 			}
 		}
 	}
+
 	return 0, false
 }
 
@@ -282,9 +313,6 @@ func (self *Node) Integer() (int64, bool) {
 // to interpret nil as 0.
 func (self *Node) UnsignedInteger() (uint64, bool) {
 	if self != NoNode {
-		if self.nilMeansZero && (self.Value == nil) {
-			return 0, true
-		}
 		switch value := self.Value.(type) {
 		case uint64:
 			return value, true
@@ -296,26 +324,19 @@ func (self *Node) UnsignedInteger() (uint64, bool) {
 			return uint64(value), true
 		case uint:
 			return uint64(value), true
-		}
-		if self.convertSimilar {
-			switch value := self.Value.(type) {
-			case int64:
-				return uint64(value), true
-			case int32:
-				return uint64(value), true
-			case int16:
-				return uint64(value), true
-			case int8:
-				return uint64(value), true
-			case int:
-				return uint64(value), true
-			case float64:
-				return uint64(value), true
-			case float32:
-				return uint64(value), true
+
+		case nil:
+			if self.nilMeansZero {
+				return 0, true
+			}
+
+		default:
+			if self.convertSimilar {
+				return util.ToUInt64(self.Value)
 			}
 		}
 	}
+
 	return 0, false
 }
 
@@ -327,42 +348,24 @@ func (self *Node) UnsignedInteger() (uint64, bool) {
 // Precision may be lost.
 //
 // By default will fail on nil values. Call [Node.NilMeansZero]
-// to interpret nil as 0.
+// to interpret nil as 0.0.
 func (self *Node) Float() (float64, bool) {
 	if self != NoNode {
-		if self.nilMeansZero && (self.Value == nil) {
-			return 0.0, true
-		}
 		switch value := self.Value.(type) {
 		case float64:
 			return value, true
 		case float32:
 			return float64(value), true
-		}
-		if self.convertSimilar {
-			switch value := self.Value.(type) {
-			case int64:
-				return float64(value), true
-			case int32:
-				return float64(value), true
-			case int16:
-				return float64(value), true
-			case int8:
-				return float64(value), true
-			case int:
-				return float64(value), true
-			case uint64:
-				return float64(value), true
-			case uint32:
-				return float64(value), true
-			case uint16:
-				return float64(value), true
-			case uint8:
-				return float64(value), true
-			case uint:
-				return float64(value), true
+
+		case nil:
+			if self.nilMeansZero {
+				return 0.0, true
 			}
 
+		default:
+			if self.convertSimilar {
+				return util.ToFloat64(self.Value)
+			}
 		}
 	}
 	return 0.0, false
@@ -372,28 +375,36 @@ func (self *Node) Float() (float64, bool) {
 //
 // If [Node.ConvertSimilar] was called then will call [Node.String]
 // and then [strconv.ParseBool], with failures returning false, false.
+// Thus "true", "1", and 1 will all be interpreted as boolean true.
 //
 // By default will fail on nil values. Call [Node.NilMeansZero]
 // to interpret nil as false.
 func (self *Node) Boolean() (bool, bool) {
 	if self != NoNode {
-		if self.nilMeansZero && (self.Value == nil) {
-			return false, true
-		}
-		value, ok := self.Value.(bool)
-		if !ok && self.convertSimilar {
-			if string_, ok := self.String(); ok {
-				if value_, err := strconv.ParseBool(string_); err == nil {
-					return value_, true
+		switch value := self.Value.(type) {
+		case bool:
+			return value, true
+
+		case nil:
+			if self.nilMeansZero {
+				return false, true
+			}
+
+		default:
+			if self.convertSimilar {
+				if string_, ok := self.String(); ok {
+					if value_, err := strconv.ParseBool(string_); err == nil {
+						return value_, true
+					} else {
+						return false, false
+					}
 				} else {
 					return false, false
 				}
-			} else {
-				return false, false
 			}
 		}
-		return value, ok
 	}
+
 	return false, false
 }
 
@@ -406,20 +417,28 @@ func (self *Node) Boolean() (bool, bool) {
 // to interpret nil as an empty [Map].
 func (self *Node) Map() (Map, bool) {
 	if self != NoNode {
-		if self.nilMeansZero && (self.Value == nil) {
-			return make(Map), true
-		} else if map_, ok := self.Value.(Map); ok {
-			return map_, true
-		} else if self.convertSimilar {
-			if stringMap, ok := self.Value.(StringMap); ok {
+		switch value := self.Value.(type) {
+		case Map:
+			return value, true
+
+		case nil:
+			if self.nilMeansZero {
+				return make(Map), true
+			}
+
+		case StringMap:
+			if self.convertSimilar {
 				map_ := make(Map)
-				for key, value := range stringMap {
-					map_[key] = value
+
+				for key, value_ := range value {
+					map_[key] = value_
 				}
+
 				return map_, true
 			}
 		}
 	}
+
 	return nil, false
 }
 
@@ -433,20 +452,28 @@ func (self *Node) Map() (Map, bool) {
 // to interpret nil as an empty [StringMap].
 func (self *Node) StringMap() (StringMap, bool) {
 	if self != NoNode {
-		if self.nilMeansZero && (self.Value == nil) {
-			return make(StringMap), true
-		} else if stringMap, ok := self.Value.(StringMap); ok {
-			return stringMap, true
-		} else if self.convertSimilar {
-			if map_, ok := self.Value.(Map); ok {
+		switch value := self.Value.(type) {
+		case StringMap:
+			return value, true
+
+		case nil:
+			if self.nilMeansZero {
+				return make(StringMap), true
+			}
+
+		case Map:
+			if self.convertSimilar {
 				stringMap := make(StringMap)
-				for key, value := range map_ {
-					stringMap[MapKeyToString(key)] = value
+
+				for key, value_ := range value {
+					stringMap[MapKeyToString(key)] = value_
 				}
+
 				return stringMap, true
 			}
 		}
 	}
+
 	return nil, false
 }
 
@@ -456,44 +483,60 @@ func (self *Node) StringMap() (StringMap, bool) {
 // to interpret nil as an empty [List].
 func (self *Node) List() (List, bool) {
 	if self != NoNode {
-		if self.nilMeansZero && (self.Value == nil) {
-			return nil, true
+		switch value := self.Value.(type) {
+		case List:
+			return value, true
+
+		case nil:
+			if self.nilMeansZero {
+				return List{}, true
+			}
 		}
-		list, ok := self.Value.(List)
-		return list, ok
 	}
+
 	return nil, false
 }
 
 // Returns []string, true if the node is [List] and all its
-// elements are strings.
+// elements are strings (or if the node is already a []string,
+// which doesn't normally occur in ARD).
 //
 // If [Node.ConvertSimilar] was called then will convert all
-// elements to their string representations and return true.
-// Values are converted using [MapKeyToString].
+// [List] elements to their string representations and return true.
+// Values are converted using [ValueToString].
 //
 // By default will fail on nil values. Call [Node.NilMeansZero]
-// to interpret nil as an empty [List].
+// to interpret nil as an empty []string.
 func (self *Node) StringList() ([]string, bool) {
 	if self != NoNode {
-		if self.nilMeansZero && (self.Value == nil) {
-			return nil, true
-		}
-		if value, ok := self.Value.(List); ok {
+		switch value := self.Value.(type) {
+		case []string:
+			return value, true
+
+		case List:
 			list := make([]string, len(value))
 			for index, element := range value {
 				string_, ok := element.(string)
-				if !ok && self.convertSimilar {
-					string_ = MapKeyToString(element)
-				} else {
-					return nil, false
+
+				if !ok {
+					if self.convertSimilar {
+						string_ = ValueToString(element)
+					} else {
+						return nil, false
+					}
 				}
+
 				list[index] = string_
 			}
+
 			return list, true
-		} else {
-			return nil, false
+
+		case nil:
+			if self.nilMeansZero {
+				return []string{}, true
+			}
 		}
 	}
+
 	return nil, false
 }

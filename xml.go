@@ -21,12 +21,24 @@ const (
 	XMLMapEntryValueTag = "value"
 )
 
-func PrepareForEncodingXML(value Value, reflector *Reflector) (any, error) {
-	if value_, err := ValidCopy(value, reflector); err == nil {
-		return PackXML(value_), nil
-	} else {
-		return nil, err
+// Prepares an ARD [Value] for encoding via [xml.Encoder].
+//
+// If inPlace is false then the function is non-destructive:
+// the returned data structure is a [ValidCopy] of the value
+// argument. Otherwise, the value may be changed during
+// preparation.
+//
+// The reflector argument can be nil, in which case a
+// default reflector will be used.
+func PrepareForEncodingXML(value Value, inPlace bool, reflector *Reflector) (any, error) {
+	if !inPlace {
+		var err error
+		if value, err = ValidCopy(value, reflector); err != nil {
+			return nil, err
+		}
 	}
+
+	return PackXML(value), nil
 }
 
 func PackXML(value Value) any {

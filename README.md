@@ -53,8 +53,8 @@ func main() {
 }
 ```
 
-Some formats (notably YAML) support a `Locator` interface for finding the line and column
-for each data element, very useful for error messages:
+Some formats (only YAML currently) support a `Locator` interface for finding the line and
+column for each data element, very useful for error messages:
 
 ```go
 var yamlRepresentation = `
@@ -163,7 +163,7 @@ func main() {
 }
 ```
 
-Introducing the "xjson" (eXtended JSON) format that adds support for missing ARD types: integers,
+Introducing the XJON (eXtended JSON) format that adds support for missing ARD types: integers,
 unsigned integers, and maps with non-string keys:
 
 ```go
@@ -174,7 +174,7 @@ var data = ard.Map{
 }
 
 func main() {
-	if data_, ok := ard.PrepareForEncodingXJSON(data); ok { // will conveniently also normalize to "map[string]any" for "encoding/json" to work
+	if data_, err := ard.PrepareForEncodingXJSON(data, false, nil); err == nil { // will conveniently also normalize to "map[string]any" for "encoding/json" to work
 		if j, err := json.Marshal(data_); err == nil {
 			fmt.Println(string(j)) // {"map":{"age":{"$ard.uinteger":"120"}}}
 			if data__, _, err := ard.Decode(j, "xjson", false); err == nil {

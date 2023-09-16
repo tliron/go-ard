@@ -22,26 +22,21 @@ func ConvertMapsToStringMaps(value Value) (Value, bool) {
 	return convert(value, convertMapsToStringMaps)
 }
 
-type conversionMode int
-
-const (
-	noConversion            conversionMode = 0
-	convertStringMapsToMaps conversionMode = 1
-	convertMapsToStringMaps conversionMode = 2
-)
-
 func convert(value Value, mode conversionMode) (Value, bool) {
 	switch value_ := value.(type) {
 	case StringMap:
 		if mode == convertStringMapsToMaps {
 			changedMap := make(Map)
+
 			for key, value__ := range value_ {
 				changedMap[key], _ = convert(value__, mode)
 			}
+
 			return changedMap, true
 		} else {
 			changedStringMap := make(StringMap)
 			changed := false
+
 			for key, element := range value_ {
 				var changed_ bool
 				if element, changed_ = convert(element, mode); changed_ {
@@ -49,6 +44,7 @@ func convert(value Value, mode conversionMode) (Value, bool) {
 				}
 				changedStringMap[key] = element
 			}
+
 			if changed {
 				return changedStringMap, true
 			}
@@ -57,13 +53,16 @@ func convert(value Value, mode conversionMode) (Value, bool) {
 	case Map:
 		if mode == convertMapsToStringMaps {
 			changedMap := make(StringMap)
+
 			for key, value__ := range value_ {
 				changedMap[MapKeyToString(key)], _ = convert(value__, mode)
 			}
+
 			return changedMap, true
 		} else {
 			changedMap := make(Map)
 			changed := false
+
 			for key, element := range value_ {
 				var changedKey bool
 				key, changedKey = convert(key, mode)
@@ -77,6 +76,7 @@ func convert(value Value, mode conversionMode) (Value, bool) {
 
 				changedMap[key] = element
 			}
+
 			if changed {
 				return changedMap, true
 			}
@@ -85,13 +85,16 @@ func convert(value Value, mode conversionMode) (Value, bool) {
 	case List:
 		changedList := make(List, len(value_))
 		changed := false
+
 		for index, element := range value_ {
 			var changed_ bool
 			if element, changed_ = convert(element, mode); changed_ {
 				changed = true
 			}
+
 			changedList[index] = element
 		}
+
 		if changed {
 			return changedList, true
 		}

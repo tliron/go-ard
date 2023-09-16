@@ -11,6 +11,11 @@ func Equals(a Value, b Value) bool {
 	switch a_ := a.(type) {
 	case Map:
 		if bMap, ok := b.(Map); ok {
+			// Must have same lengths
+			if len(a_) != len(bMap) {
+				return false
+			}
+
 			// Does A have all the keys that are in B?
 			for key := range bMap {
 				if _, ok := a_[key]; !ok {
@@ -36,6 +41,11 @@ func Equals(a Value, b Value) bool {
 
 	case StringMap:
 		if bMap, ok := b.(StringMap); ok {
+			// Must have same lengths
+			if len(a_) != len(bMap) {
+				return false
+			}
+
 			// Does A have all the keys that are in B?
 			for key := range bMap {
 				if _, ok := a_[key]; !ok {

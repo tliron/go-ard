@@ -131,8 +131,8 @@ github.com/tliron/commonlog v0.1.1 h1:bCkNKk+O5ciKBFxnjcMGLR79TGCq8hMSh5DfaeRJQH
 github.com/tliron/commonlog v0.1.1/go.mod h1:qswie0h44wu9XrQ8sGOtmOjVVgI5qbU4Dl4wbi1b/w0=
 github.com/tliron/exturl v0.4.0 h1:2lHilabGmaoux3oYyPMJxcAcuMevVbw8cZ3LL9qxYB4=
 github.com/tliron/exturl v0.4.0/go.mod h1:OGgLAYa3qGYKmRu/RVjKnNvw4Va4lhCxKMxMbbdicSI=
-github.com/tliron/kutil v0.3.2 h1:rJIOh/NIVinPhBR7v7WOv/VmeUGbXEaeqn7Xh3wz9Sc=
-github.com/tliron/kutil v0.3.2/go.mod h1:7n2qq1jX5twc+XUbVYqYFR5WXuW6wgHsI9lpLpPz4DE=
+github.com/tliron/kutil v0.3.3 h1:f+0Aug+KO5SmYcXbIpIsU4Rigjw7f1UXvhhpuEvE2u8=
+github.com/tliron/kutil v0.3.3/go.mod h1:biDwKHiaQAJ6E4xZYTGtnqSTbdqu8DNUPJ02JRGj/jM=
 github.com/tliron/yamlkeys v1.3.6 h1:PPV4q7flMqIvmSUSsEZuns7Qt3VIMxkhBj+6KTRvI9c=
 github.com/tliron/yamlkeys v1.3.6/go.mod h1:K/uKQwMke5a9h6YW/Sj9pcp66vU3lRP97OrOjo/ELoU=
 github.com/urfave/cli v1.22.12/go.mod h1:sSBEIC79qR6OvcmsD4U3KABeOTxDqQtdDnaFuUN30b8=
