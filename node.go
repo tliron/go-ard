@@ -409,8 +409,8 @@ func (self *Node) StringList() ([]string, bool) {
 	return nil, false
 }
 
-// Gets nested nodes from [Map] or [StringMap] by keys, recursively. Returns
-// [NoNode] if a key is not found.
+// Gets a node from a neested [Map] or [StringMap] by recursively following keys.
+// Returns [NoNode] if a key is not found.
 //
 // For [StringMap] keys are converted using [MapKeyToString].
 //
@@ -434,7 +434,7 @@ func (self *Node) Get(keys ...Value) *Node {
 	return current
 }
 
-// Puts values in a nested [Map] or [StringMap] by keys, recursively.
+// Puts a value in a nested [Map] or [StringMap] by recursively following keys.
 // Returns false if failed (a nested node is not a [Map] or [StringMap]).
 //
 // For [StringMap] keys are converted using [MapKeyToString].
@@ -445,11 +445,11 @@ func (self *Node) Put(keys []Value, value Value) bool {
 	return self.put(keys, value, false)
 }
 
-// Puts values in a nested [Map] or [StringMap] by keys, recursively.
+// Puts a value in a nested [Map] or [StringMap] by recursively following keys.
 // Along the way, if a nested node does not exist then a map will be
-// created and added. The type of the created map will match that of the
-// containing map, either [Map] or [StringMap]. Returns false if failed
-// (if a nested node already exists and is not a [Map] or [StringMap]).
+// created and added to its container node. The type of the created map will match
+// that of the containing map, either [Map] or [StringMap]. Returns false if
+// failed (if a nested node already exists and is not a [Map] or [StringMap]).
 //
 // An empty keys argument (nil or empty slice) will work similarly to
 // [Node.Put].
@@ -460,6 +460,55 @@ func (self *Node) Put(keys []Value, value Value) bool {
 // a string.
 func (self *Node) ForcePut(keys []Value, value Value) bool {
 	return self.put(keys, value, true)
+}
+
+// Deletes a key from a nested [Map] or [StringMap] by recursively following keys.
+// Returns false if failed (a nested node is not a [Map] or [StringMap]).
+//
+// For [StringMap] keys are converted using [MapKeyToString].
+//
+// You could potentially use [PathToKeys] to generate the keys argument from
+// a string.
+func (self *Node) Delete(keys []Value) bool {
+	if self == NoNode {
+		return false
+	}
+
+	last := len(keys) - 1
+
+	if last == -1 {
+		return false
+	}
+
+	switch self.Value.(type) {
+	case Map, StringMap:
+		current := self.Value
+
+		// Iterate all keys except last
+		if last > 0 {
+			for _, key := range keys[:last] {
+				// Try to use existing map
+				if value_, ok, isMap := getFromMap(current, key); ok {
+					if isMap {
+						// Key exists and is a map
+						current = value_
+					} else {
+						// Key exists but is not a map
+						return false
+					}
+				} else {
+					return false
+				}
+			}
+		}
+
+		deleteFromMap(current, keys[last])
+
+		return true
+
+	default:
+		return false
+	}
 }
 
 // Appends a value to a [List]. This function attempts to change the
@@ -479,7 +528,7 @@ func (self *Node) Append(value Value) bool {
 }
 
 // Convenience function to convert a string path to keys
-// usable for [Node.Get], [Node.Put], and [Node.ForcePut].
+// usable for [Node.Get], [Node.Put], [Node.ForcePut], and [Node.Delete].
 //
 // Does a [strings.Split] with the provided separator.
 func PathToKeys(path string, separator string) []Value {
@@ -582,6 +631,19 @@ func putInMap(map_ any, key Value, value Value) {
 
 	case StringMap:
 		map__[MapKeyToString(key)] = value
+
+	default:
+		panic(fmt.Sprintf("not a map: %T", map_))
+	}
+}
+
+func deleteFromMap(map_ any, key Value) {
+	switch map__ := map_.(type) {
+	case Map:
+		delete(map__, key)
+
+	case StringMap:
+		delete(map__, MapKeyToString(key))
 
 	default:
 		panic(fmt.Sprintf("not a map: %T", map_))
