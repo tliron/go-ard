@@ -409,7 +409,7 @@ func (self *Node) StringList() ([]string, bool) {
 	return nil, false
 }
 
-// Sets the value of a key of a container map.
+// Sets the value of a key in a container map.
 // Will fail and return false if the container is not [Map] or [StringMap].
 func (self *Node) Set(value Value) bool {
 	if self == NoNode {
@@ -419,6 +419,23 @@ func (self *Node) Set(value Value) bool {
 	if self.container != nil {
 		if self.container.Put([]Value{self.key}, value) {
 			self.Value = value
+			return true
+		}
+	}
+
+	return false
+}
+
+// Deletes a key from a container map and sets this node's value to nil.
+// Will fail and return false if the container is not [Map] or [StringMap].
+func (self *Node) Delete() bool {
+	if self == NoNode {
+		return false
+	}
+
+	if self.container != nil {
+		if self.container.DeleteKey(self.key) {
+			self.Value = nil
 			return true
 		}
 	}
@@ -486,7 +503,7 @@ func (self *Node) ForcePut(keys []Value, value Value) bool {
 //
 // You could potentially use [PathToKeys] to generate the keys argument from
 // a string.
-func (self *Node) Delete(keys ...Value) bool {
+func (self *Node) DeleteKey(keys ...Value) bool {
 	if self == NoNode {
 		return false
 	}
@@ -551,7 +568,7 @@ func (self *Node) Append(value Value) bool {
 }
 
 // Convenience function to convert a string path to keys
-// usable for [Node.Get], [Node.Put], [Node.ForcePut], and [Node.Delete].
+// usable for [Node.Get], [Node.Put], [Node.ForcePut], and [Node.DeleteKey].
 //
 // Does a [strings.Split] with the provided separator.
 func PathToKeys(path string, separator string) []Value {
