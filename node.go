@@ -409,7 +409,24 @@ func (self *Node) StringList() ([]string, bool) {
 	return nil, false
 }
 
-// Gets a node from a neested [Map] or [StringMap] by recursively following keys.
+// Sets the value of a key of a container map.
+// Will fail and return false if the container is not [Map] or [StringMap].
+func (self *Node) Set(value Value) bool {
+	if self == NoNode {
+		return false
+	}
+
+	if self.container != nil {
+		if self.container.Put([]Value{self.key}, value) {
+			self.Value = value
+			return true
+		}
+	}
+
+	return false
+}
+
+// Gets a node from a nested [Map] or [StringMap] by recursively following keys.
 // Returns [NoNode] if a key is not found.
 //
 // For [StringMap] keys are converted using [MapKeyToString].
@@ -521,10 +538,16 @@ func (self *Node) Append(value Value) bool {
 	}
 
 	if list, ok := self.Value.(List); ok {
-		return self.container.Put([]Value{self.key}, append(list, value))
-	} else {
-		return false
+		if self.container != nil {
+			list = append(list, value)
+			if self.container.Put([]Value{self.key}, list) {
+				self.Value = list
+				return true
+			}
+		}
 	}
+
+	return false
 }
 
 // Convenience function to convert a string path to keys
