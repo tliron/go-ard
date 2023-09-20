@@ -132,14 +132,17 @@ var data = ard.Map{
 		"property1": "Hello",
 		"property2": ard.StringMap{
 			"second": ard.Map{
-				"property1": 1}}}}
+				"property3": 1}}}}
 
 func main() {
-	if p1, ok := ard.NewNode(data).Get("first", "property1").String(); ok {
+	if p1, ok := ard.With(data).Get("first", "property1").String(); ok {
 		fmt.Println(p1)
 	}
-	if p2, ok := ard.NewNode(data).Get("first", "property2", "second", "property1").ConvertSimilar().Float(); ok {
+	if p2, ok := ard.With(data).Get("first", "property2", "second", "property3").ConvertSimilar().Float(); ok {
 		fmt.Printf("%f\n", p2)
+	}
+	if p3, ok := ard.With(data).GetPath("first.property2.second.property3", ".").ConvertSimilar().Float(); ok {
+		fmt.Printf("%f\n", p3)
 	}
 }
 ```

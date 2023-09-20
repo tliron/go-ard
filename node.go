@@ -21,7 +21,9 @@ type Node struct {
 	convertSimilar bool
 }
 
-func NewNode(data any) *Node {
+// Creates an extractable, convertible, traversable, and modifiable wrapper
+// (a [Node]) for an ARD [Value].
+func With(data any) *Node {
 	return &Node{data, nil, "", false, false}
 }
 
@@ -39,9 +41,9 @@ func (self *Node) NilMeansZero() *Node {
 	return &Node{self.Value, self.container, self.key, true, self.convertSimilar}
 }
 
-// Returns a copy of this node for which similar values are allows and converted
-// to the requested type. For example, [Node.Float] on an integer or unsigned integer
-// would convert it to float.
+// Returns a copy of this node for which similarly-typed values are allowed and
+// converted to the requested type. For example, [Node.Float] on an integer or
+// unsigned integer would convert it to float.
 func (self *Node) ConvertSimilar() *Node {
 	if self == NoNode {
 		return NoNode
@@ -50,11 +52,11 @@ func (self *Node) ConvertSimilar() *Node {
 	return &Node{self.Value, self.container, self.key, self.nilMeansZero, true}
 }
 
-// Returns ([string], true) if the node is [string].
+// Returns ([string], true) if the node is a [string].
 //
 // If [Node.ConvertSimilar] was called then will convert any value
-// to a string representation and return true (unless we are [NoNode]).
-// Values are converted using [ValueToString].
+// to a string representation using [ValueToString] and return true
+// (unless we are [NoNode]).
 //
 // By default will fail on nil values. Call [Node.NilMeansZero]
 // to interpret nil as an empty string.
@@ -81,11 +83,11 @@ func (self *Node) String() (string, bool) {
 	return "", false
 }
 
-// Returns ([]byte, true) if the node is []byte.
+// Returns ([]byte, true) if the node is a []byte.
 //
-// If [Node.ConvertSimilar] was called and the node is a string
+// If [Node.ConvertSimilar] was called and the node is a [string]
 // then will attempt to decode it as base64, with failures returning
-// false, false.
+// (false, false).
 //
 // By default will fail on nil values. Call [Node.NilMeansZero]
 // to interpret nil as an empty []byte.
@@ -116,7 +118,7 @@ func (self *Node) Bytes() ([]byte, bool) {
 	return nil, false
 }
 
-// Returns ([int64], true) if the node is [int64], [int32],
+// Returns ([int64], true) if the node is an [int64], [int32],
 // [int16], [int8], or [int].
 //
 // If [Node.ConvertSimilar] was called then will convert [uint64],
@@ -157,7 +159,7 @@ func (self *Node) Integer() (int64, bool) {
 	return 0, false
 }
 
-// Returns ([uint64], true) if the node is [uint64], [uint32],
+// Returns ([uint64], true) if the node is an [uint64], [uint32],
 // [uint16], [uint8], or [uint].
 //
 // If [Node.ConvertSimilar] was called then will convert [int64],
@@ -198,7 +200,7 @@ func (self *Node) UnsignedInteger() (uint64, bool) {
 	return 0, false
 }
 
-// Returns ([float64], true) if the node is [float64] or [float32].
+// Returns ([float64], true) if the node is a [float64] or a [float32].
 //
 // If [Node.ConvertSimilar] was called then will convert [int64],
 // [int32], [int16], [int8], [int], [uint64], [uint32], [uint16],
@@ -232,12 +234,12 @@ func (self *Node) Float() (float64, bool) {
 	return 0.0, false
 }
 
-// Returns ([bool], true) if the node is [bool].
+// Returns ([bool], true) if the node is a [bool].
 //
 // If [Node.ConvertSimilar] was called then will call [Node.String]
 // and then [strconv.ParseBool], with failures returning (false, false).
-// Thus "true", "1", and 1 (ints and floats) will all be interpreted as
-// boolean true.
+// Thus "true", "1", and numerical 1 (both ints and floats) will all be
+// interpreted as boolean true.
 //
 // By default will fail on nil values. Call [Node.NilMeansZero]
 // to interpret nil as false.
@@ -268,7 +270,7 @@ func (self *Node) Boolean() (bool, bool) {
 	return false, false
 }
 
-// Returns ([Map], true) if the node is [Map].
+// Returns ([Map], true) if the node is a [Map].
 //
 // If [Node.ConvertSimilar] was called then will convert [StringMap]
 // to a [Map] and return true.
@@ -304,7 +306,7 @@ func (self *Node) Map() (Map, bool) {
 	return nil, false
 }
 
-// Returns ([StringMap], true) if the node is [StringMap].
+// Returns ([StringMap], true) if the node is a [StringMap].
 //
 // If [Node.ConvertSimilar] was called then will convert [Map]
 // to a [StringMap] and return true. Keys are converted using
@@ -341,7 +343,7 @@ func (self *Node) StringMap() (StringMap, bool) {
 	return nil, false
 }
 
-// Returns ([List], true) if the node is [List].
+// Returns ([List], true) if the node is a [List].
 //
 // By default will fail on nil values. Call [Node.NilMeansZero]
 // to interpret nil as an empty [List].
@@ -363,9 +365,9 @@ func (self *Node) List() (List, bool) {
 	return nil, false
 }
 
-// Returns ([]string, true) if the node is [List] and all its
-// elements are strings. Will optimize if the node is already a
-// []string, which doesn't normally occur in ARD.
+// Returns a new ([]string, true) if the node is [List] and all
+// its elements are strings. Will optimize and avoid copying if the
+// node is already a []string, which doesn't normally occur in ARD.
 //
 // If [Node.ConvertSimilar] was called then will convert all
 // [List] elements to their string representations and return true.
@@ -409,10 +411,10 @@ func (self *Node) StringList() ([]string, bool) {
 	return nil, false
 }
 
-// Sets the value of this node and its key in the container map.
+// Sets the value of this node and its key in the containing map.
 //
-// Will fail and return false if there is no container or it's not
-// [Map] or [StringMap].
+// Will fail and return false if there is no containing node or it's
+// not [Map] or [StringMap].
 func (self *Node) Set(value Value) bool {
 	if self == NoNode {
 		return false
@@ -432,8 +434,8 @@ func (self *Node) Set(value Value) bool {
 
 // Appends a value to a [List] and calls [Node.Set].
 //
-// Will fail and return false if there is no container or it's not
-// [Map] or [StringMap], or if this node is not a [List].
+// Will fail and return false if there is no containing node or
+// it's not [Map] or [StringMap], or if this node is not a [List].
 func (self *Node) Append(value Value) bool {
 	if self == NoNode {
 		return false
@@ -446,10 +448,10 @@ func (self *Node) Append(value Value) bool {
 	return false
 }
 
-// Deletes this node's key from the container map.
+// Deletes this node's key from the containing node's map.
 //
-// Will fail and return false if there is no container or it's not
-// [Map] or [StringMap].
+// Will fail and return false if there is no containing node or
+// it's not [Map] or [StringMap].
 func (self *Node) Delete() bool {
 	if self == NoNode {
 		return false
@@ -470,19 +472,16 @@ func (self *Node) Delete() bool {
 }
 
 // Gets a node from a nested [Map] or [StringMap] by recursively following keys.
-// Returns [NoNode] if a key is not found.
+// Returns [NoNode] if any key is not found.
 //
 // For [StringMap] keys are converted using [MapKeyToString].
-//
-// You could potentially use [PathToKeys] to generate the keys argument from
-// a string.
 func (self *Node) Get(keys ...Value) *Node {
 	return self.get(keys, false)
 }
 
 // Gets a node from a nested [Map] or [StringMap] by recursively following keys.
 // Along the way, if a nested node does not exist then a map will be created and
-// put in its container node. The type of the created map will match that of the
+// put in its containing node. The type of the created map will match that of the
 // containing map, either [Map] or [StringMap]. Returns [NoNode] if a nested node
 // already exists and is not a [Map] or [StringMap]. Otherwise the returned node
 // will have a nil value if the last key does not exist in its container. Thus
@@ -490,9 +489,6 @@ func (self *Node) Get(keys ...Value) *Node {
 // though the last key does not exist in its container.
 //
 // For [StringMap] keys are converted using [MapKeyToString].
-//
-// You could potentially use [PathToKeys] to generate the keys argument from
-// a string.
 func (self *Node) ForceGet(keys ...Value) *Node {
 	return self.get(keys, true)
 }
@@ -508,7 +504,7 @@ func (self *Node) ForceGetPath(path string, separator string) *Node {
 }
 
 // Convenience function to convert a string path to keys
-// usable for [Node.Get], [Node.Put], [Node.ForcePut], and [Node.DeleteKey].
+// usable for [Node.Get] and [Node.ForceGet].
 //
 // Does a [strings.Split] with the provided separator.
 func PathToKeys(path string, separator string) []Value {
