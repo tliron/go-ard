@@ -469,7 +469,7 @@ func (self *Node) ForcePut(keys []Value, value Value) bool {
 //
 // You could potentially use [PathToKeys] to generate the keys argument from
 // a string.
-func (self *Node) Delete(keys []Value) bool {
+func (self *Node) Delete(keys ...Value) bool {
 	if self == NoNode {
 		return false
 	}
