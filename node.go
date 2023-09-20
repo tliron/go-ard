@@ -1,6 +1,7 @@
 package ard
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -408,139 +409,91 @@ func (self *Node) StringList() ([]string, bool) {
 	return nil, false
 }
 
-// Gets a [Map] node nested in other [Map] nodes by keys, recursively.
-// Importantly, this function will create new [Map] nodes along the way
-// if they don't already exist, so it can change the ARD structure.
-//
-// If a [Map] can't be created along the way (meaning the the key already
-// exists and is not a [Map]), or if this node is itself not a [Map], will
-// return false.
-func (self *Node) NestedMap(keys ...Value) (Map, bool) {
-	if self == NoNode {
-		return nil, false
-	}
-
-	switch map_ := self.Value.(type) {
-	case Map:
-		for _, key := range keys {
-			if value, ok := map_[key]; ok {
-				// Try to use existing map
-				if map_, ok = value.(Map); !ok {
-					// It's not a map
-					return nil, false
-				}
-			} else {
-				// Create a new map
-				map__ := make(Map)
-				map_[key] = map__
-				map_ = map__
-			}
-		}
-
-		return map_, true
-
-	default:
-		return nil, false
-	}
-}
-
-// Gets a [StringMap] node nested in other [StringMap] nodes by keys, recursively.
-// Importantly, this function will create new [StringMap] nodes along the way
-// if they don't already exist, so it can change the ARD structure.
-//
-// If a [StringMap] can't be created along the way (meaning the the key already
-// exists and is not a [StringMap]), or if this node is itself not a [StringMap], will
-// return false.
-func (self *Node) NestedStringMap(keys ...Value) (StringMap, bool) {
-	if self == NoNode {
-		return nil, false
-	}
-
-	switch map_ := self.Value.(type) {
-	case StringMap:
-		for _, key := range keys {
-			key_ := MapKeyToString(key)
-			if value, ok := map_[key_]; ok {
-				// Try to use existing map
-				if map_, ok = value.(StringMap); !ok {
-					// It's not a map
-					return nil, false
-				}
-			} else {
-				// Create a new map
-				map__ := make(StringMap)
-				map_[key_] = map__
-				map_ = map__
-			}
-		}
-
-		return map_, true
-
-	default:
-		return nil, false
-	}
-}
-
 // Gets nested nodes from [Map] or [StringMap] by keys, recursively. Returns
 // [NoNode] if a key is not found.
 //
 // For [StringMap] keys are converted using [MapKeyToString].
+//
+// You could potentially use [PathToKeys] to generate the keys argument from
+// a string.
 func (self *Node) Get(keys ...Value) *Node {
 	if self == NoNode {
 		return NoNode
 	}
 
-	self_ := self
+	current := self
 
 	for _, key := range keys {
-		switch map_ := self_.Value.(type) {
-		case Map:
-			if value, ok := map_[key]; ok {
-				self_ = &Node{value, self_, key, self_.nilMeansZero, self_.convertSimilar}
-			} else {
-				return NoNode
-			}
-
-		case StringMap:
-			if value, ok := map_[MapKeyToString(key)]; ok {
-				self_ = &Node{value, self_, key, self_.nilMeansZero, self_.convertSimilar}
-			} else {
-				return NoNode
-			}
-
-		default:
+		if value, ok, _ := getFromMap(current.Value, key); ok {
+			current = &Node{value, current, key, current.nilMeansZero, current.convertSimilar}
+		} else {
 			return NoNode
 		}
 	}
 
-	return self_
+	return current
 }
 
-// Puts values in [Map] or [StringMap] by key. Returns false if
-// failed (not a [Map] or [StringMap]).
+// Puts values in a nested [Map] or [StringMap] by keys, recursively.
+// Returns false if failed (a nested node is not a [Map] or [StringMap]).
 //
 // For [StringMap] keys are converted using [MapKeyToString].
-func (self *Node) Put(key Value, value Value) bool {
+//
+// You could potentially use [PathToKeys] to generate the keys argument from
+// a string.
+func (self *Node) Put(keys []Value, value Value) bool {
+	return self.put(keys, value, false)
+}
+
+// Puts values in a nested [Map] or [StringMap] by keys, recursively.
+// Along the way, if a nested node does not exist then a map will be
+// created and added. The type of the created map will match that of the
+// containing map, either [Map] or [StringMap]. Returns false if failed
+// (if a nested node already exists and is not a [Map] or [StringMap]).
+//
+// An empty keys argument (nil or empty slice) will work similarly to
+// [Node.Put].
+//
+// For [StringMap] keys are converted using [MapKeyToString].
+//
+// You could potentially use [PathToKeys] to generate the keys argument from
+// a string.
+func (self *Node) ForcePut(keys []Value, value Value) bool {
+	return self.put(keys, value, true)
+}
+
+// Appends a value to a [List]. This function attempts to change the
+// container of this node, a map which is the actual owner of the slice.
+// If there is no valid container then will fail and return false. Will
+// also fail if this node is not a [List].
+func (self *Node) Append(value Value) bool {
 	if self == NoNode {
 		return false
 	}
 
-	switch map_ := self.Value.(type) {
-	case Map:
-		map_[key] = value
-		return true
-
-	case StringMap:
-		map_[MapKeyToString(key)] = value
-		return true
-
-	default:
+	if list, ok := self.Value.(List); ok {
+		return self.container.Put([]Value{self.key}, append(list, value))
+	} else {
 		return false
 	}
 }
 
-// For [StringMap] keys are converted using [MapKeyToString].
-func (self *Node) PutNested(keys []Value, value Value) bool {
+// Convenience function to convert a string path to keys
+// usable for [Node.Get], [Node.Put], and [Node.ForcePut].
+//
+// Does a [strings.Split] with the provided separator.
+func PathToKeys(path string, separator string) []Value {
+	keys := strings.Split(path, separator)
+	keys_ := make([]Value, len(keys))
+	for index, key := range keys {
+		keys_[index] = key
+	}
+	return keys_
+}
+
+// Utils
+
+func (self *Node) put(keys []Value, value Value, force bool) bool {
 	if self == NoNode {
 		return false
 	}
@@ -551,83 +504,86 @@ func (self *Node) PutNested(keys []Value, value Value) bool {
 		return false
 	}
 
-	switch map_ := self.Value.(type) {
-	case Map:
+	switch self.Value.(type) {
+	case Map, StringMap:
+		current := self.Value
+
+		// Iterate all keys except last
 		if last > 0 {
 			for _, key := range keys[:last] {
-				if value_, ok := map_[key]; ok {
-					// Try to use existing map
-					if map_, ok = value_.(Map); !ok {
+				// Try to use existing map
+				if value_, ok, isMap := getFromMap(current, key); ok {
+					if isMap {
+						// Key exists and is a map
+						current = value_
+					} else {
+						// Key exists but is not a map
 						return false
 					}
+				} else if force {
+					// Create a new map (same type as current)
+					var newCurrent any
+					switch current.(type) {
+					case Map:
+						newCurrent = make(Map)
+					case StringMap:
+						newCurrent = make(StringMap)
+					default:
+						panic(fmt.Sprintf("not a map: %T", current))
+					}
+					putInMap(current, key, newCurrent)
+					current = newCurrent
 				} else {
-					// Create a new map
-					map__ := make(Map)
-					map_[key] = map__
-					map_ = map__
+					return false
 				}
 			}
 		}
 
-		map_[keys[last]] = value
-
-		return true
-
-	case StringMap:
-		if last > 0 {
-			for _, key := range keys[:last] {
-				key_ := MapKeyToString(key)
-				if value_, ok := map_[key_]; ok {
-					// Try to use existing map
-					if map_, ok = value_.(StringMap); !ok {
-						return false
-					}
-				} else {
-					// Create a new map
-					map__ := make(StringMap)
-					map_[key_] = map__
-					map_ = map__
-				}
-			}
-		}
-
-		map_[MapKeyToString(keys[last])] = value
+		putInMap(current, keys[last], value)
 
 		return true
 
 	default:
-		return true
-	}
-}
-
-// Appends a value to a [List]. Returns false if failed
-// (not a [List]).
-//
-// Note that this function changes the container of this node, which
-// is the actual owner of the slice.
-func (self *Node) Append(value Value) bool {
-	if self == NoNode {
-		return false
-	}
-
-	if list, ok := self.Value.(List); ok {
-		self.container.Put(self.key, append(list, value))
-		return true
-	} else {
 		return false
 	}
 }
 
-// Convenience function to convert a string path to keys
-// usable for [Node.Get], [Node.PutNested], [Node.NestedMap],
-// and [Node.NestedStringMap].
-//
-// Does a [strings.Split] with the provided separator.
-func PathToKeys(path string, separator string) []Value {
-	keys := strings.Split(path, separator)
-	keys_ := make([]Value, len(keys))
-	for index, key := range keys {
-		keys_[index] = key
+// value, exists, isMap
+func getFromMap(value any, key Value) (any, bool, bool) {
+	switch map_ := value.(type) {
+	case Map:
+		if value_, ok := map_[key]; ok {
+			switch value_.(type) {
+			case Map, StringMap:
+				return value_, true, true
+			default:
+				return value_, true, false
+			}
+		}
+
+	case StringMap:
+		if value_, ok := map_[MapKeyToString(key)]; ok {
+			switch value_.(type) {
+			case Map, StringMap:
+				return value_, true, true
+			default:
+				return value_, true, false
+			}
+		}
 	}
-	return keys_
+
+	return nil, false, false
+}
+
+func putInMap(map_ any, key Value, value Value) {
+	switch map__ := map_.(type) {
+	case Map:
+		map__[key] = value
+
+	case StringMap:
+		map__[MapKeyToString(key)] = value
+
+	default:
+		panic(fmt.Sprintf("not a map: %T", map_))
+	}
 }
