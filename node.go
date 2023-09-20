@@ -409,15 +409,19 @@ func (self *Node) StringList() ([]string, bool) {
 	return nil, false
 }
 
-// Sets the value of a key in a container map.
-// Will fail and return false if the container is not [Map] or [StringMap].
+// Sets the value of this node and its key in the container map.
+//
+// Will fail and return false if there is no container or it's not
+// [Map] or [StringMap].
 func (self *Node) Set(value Value) bool {
 	if self == NoNode {
 		return false
 	}
 
 	if self.container != nil {
-		if self.container.Put([]Value{self.key}, value) {
+		switch self.container.Value.(type) {
+		case Map, StringMap:
+			putInMap(self.container.Value, self.key, value)
 			self.Value = value
 			return true
 		}
@@ -426,15 +430,37 @@ func (self *Node) Set(value Value) bool {
 	return false
 }
 
-// Deletes a key from a container map and sets this node's value to nil.
-// Will fail and return false if the container is not [Map] or [StringMap].
+// Appends a value to a [List] and calls [Node.Set].
+//
+// Will fail and return false if there is no container or it's not
+// [Map] or [StringMap], or if this node is not a [List].
+func (self *Node) Append(value Value) bool {
+	if self == NoNode {
+		return false
+	}
+
+	if list, ok := self.Value.(List); ok {
+		return self.Set(append(list, value))
+	}
+
+	return false
+}
+
+// Deletes this node's key from the container map.
+//
+// Will fail and return false if there is no container or it's not
+// [Map] or [StringMap].
 func (self *Node) Delete() bool {
 	if self == NoNode {
 		return false
 	}
 
 	if self.container != nil {
-		if self.container.DeleteKey(self.key) {
+		switch self.container.Value.(type) {
+		case Map, StringMap:
+			deleteFromMap(self.container.Value, self.key)
+			self.container = nil
+			self.key = nil
 			self.Value = nil
 			return true
 		}
@@ -451,120 +477,34 @@ func (self *Node) Delete() bool {
 // You could potentially use [PathToKeys] to generate the keys argument from
 // a string.
 func (self *Node) Get(keys ...Value) *Node {
-	if self == NoNode {
-		return NoNode
-	}
-
-	current := self
-
-	for _, key := range keys {
-		if value, ok, _ := getFromMap(current.Value, key); ok {
-			current = &Node{value, current, key, current.nilMeansZero, current.convertSimilar}
-		} else {
-			return NoNode
-		}
-	}
-
-	return current
+	return self.get(keys, false)
 }
 
-// Puts a value in a nested [Map] or [StringMap] by recursively following keys.
-// Returns false if failed (a nested node is not a [Map] or [StringMap]).
+// Gets a node from a nested [Map] or [StringMap] by recursively following keys.
+// Along the way, if a nested node does not exist then a map will be created and
+// put in its container node. The type of the created map will match that of the
+// containing map, either [Map] or [StringMap]. Returns [NoNode] if a nested node
+// already exists and is not a [Map] or [StringMap]. Otherwise the returned node
+// will have a nil value if the last key does not exist in its container. Thus
+// note that if you called [Node.NilMeansZero] you will still get a value even
+// though the last key does not exist in its container.
 //
 // For [StringMap] keys are converted using [MapKeyToString].
 //
 // You could potentially use [PathToKeys] to generate the keys argument from
 // a string.
-func (self *Node) Put(keys []Value, value Value) bool {
-	return self.put(keys, value, false)
+func (self *Node) ForceGet(keys ...Value) *Node {
+	return self.get(keys, true)
 }
 
-// Puts a value in a nested [Map] or [StringMap] by recursively following keys.
-// Along the way, if a nested node does not exist then a map will be
-// created and added to its container node. The type of the created map will match
-// that of the containing map, either [Map] or [StringMap]. Returns false if
-// failed (if a nested node already exists and is not a [Map] or [StringMap]).
-//
-// An empty keys argument (nil or empty slice) will work similarly to
-// [Node.Put].
-//
-// For [StringMap] keys are converted using [MapKeyToString].
-//
-// You could potentially use [PathToKeys] to generate the keys argument from
-// a string.
-func (self *Node) ForcePut(keys []Value, value Value) bool {
-	return self.put(keys, value, true)
+// Convenience method to call [Node.Get] with [PathToKeys].
+func (self *Node) GetPath(path string, separator string) *Node {
+	return self.Get(PathToKeys(path, separator)...)
 }
 
-// Deletes a key from a nested [Map] or [StringMap] by recursively following keys.
-// Returns false if failed (a nested node is not a [Map] or [StringMap]).
-//
-// For [StringMap] keys are converted using [MapKeyToString].
-//
-// You could potentially use [PathToKeys] to generate the keys argument from
-// a string.
-func (self *Node) DeleteKey(keys ...Value) bool {
-	if self == NoNode {
-		return false
-	}
-
-	last := len(keys) - 1
-
-	if last == -1 {
-		return false
-	}
-
-	switch self.Value.(type) {
-	case Map, StringMap:
-		current := self.Value
-
-		// Iterate all keys except last
-		if last > 0 {
-			for _, key := range keys[:last] {
-				// Try to use existing map
-				if value_, ok, isMap := getFromMap(current, key); ok {
-					if isMap {
-						// Key exists and is a map
-						current = value_
-					} else {
-						// Key exists but is not a map
-						return false
-					}
-				} else {
-					return false
-				}
-			}
-		}
-
-		deleteFromMap(current, keys[last])
-
-		return true
-
-	default:
-		return false
-	}
-}
-
-// Appends a value to a [List]. This function attempts to change the
-// container of this node, a map which is the actual owner of the slice.
-// If there is no valid container then will fail and return false. Will
-// also fail if this node is not a [List].
-func (self *Node) Append(value Value) bool {
-	if self == NoNode {
-		return false
-	}
-
-	if list, ok := self.Value.(List); ok {
-		if self.container != nil {
-			list = append(list, value)
-			if self.container.Put([]Value{self.key}, list) {
-				self.Value = list
-				return true
-			}
-		}
-	}
-
-	return false
+// Convenience method to call [Node.ForceGet] with [PathToKeys].
+func (self *Node) ForceGetPath(path string, separator string) *Node {
+	return self.ForceGet(PathToKeys(path, separator)...)
 }
 
 // Convenience function to convert a string path to keys
@@ -582,59 +522,67 @@ func PathToKeys(path string, separator string) []Value {
 
 // Utils
 
-func (self *Node) put(keys []Value, value Value, force bool) bool {
+func (self *Node) get(keys []Value, force bool) *Node {
 	if self == NoNode {
-		return false
+		return NoNode
 	}
 
 	last := len(keys) - 1
 
 	if last == -1 {
-		return false
+		return NoNode
 	}
 
 	switch self.Value.(type) {
 	case Map, StringMap:
-		current := self.Value
+		current := self
 
-		// Iterate all keys except last
+		// Iterate all keys except last (all excpeted to be maps)
 		if last > 0 {
 			for _, key := range keys[:last] {
 				// Try to use existing map
-				if value_, ok, isMap := getFromMap(current, key); ok {
+				if map_, ok, isMap := getFromMap(current.Value, key); ok {
 					if isMap {
 						// Key exists and is a map
-						current = value_
+						current = &Node{map_, current, key, current.nilMeansZero, current.convertSimilar}
 					} else {
 						// Key exists but is not a map
-						return false
+						return NoNode
 					}
 				} else if force {
 					// Create a new map (same type as current)
-					var newCurrent any
-					switch current.(type) {
+					var childMap any
+
+					switch currentMap := current.Value.(type) {
 					case Map:
-						newCurrent = make(Map)
+						childMap = make(Map)
+						currentMap[key] = childMap
+
 					case StringMap:
-						newCurrent = make(StringMap)
+						childMap = make(StringMap)
+						currentMap[MapKeyToString(key)] = childMap
+
 					default:
 						panic(fmt.Sprintf("not a map: %T", current))
 					}
-					putInMap(current, key, newCurrent)
-					current = newCurrent
+
+					current = &Node{childMap, current, key, current.nilMeansZero, current.convertSimilar}
 				} else {
-					return false
+					return NoNode
 				}
 			}
 		}
 
-		putInMap(current, keys[last], value)
-
-		return true
-
-	default:
-		return false
+		// Last key
+		lastKey := keys[last]
+		if value, ok, _ := getFromMap(current.Value, lastKey); ok {
+			return &Node{value, current, lastKey, current.nilMeansZero, current.convertSimilar}
+		} else if force {
+			return &Node{nil, current, lastKey, current.nilMeansZero, current.convertSimilar}
+		}
 	}
+
+	return NoNode
 }
 
 // value, exists, isMap
