@@ -52,7 +52,7 @@ func (self *Node) ConvertSimilar() *Node {
 	return &Node{self.Value, self.container, self.key, self.nilMeansZero, true}
 }
 
-// Returns ([string], true) if the node is a [string].
+// Returns (string, true) if the node is a string.
 //
 // If [Node.ConvertSimilar] was called then will convert any value
 // to a string representation using [ValueToString] and return true
@@ -85,7 +85,7 @@ func (self *Node) String() (string, bool) {
 
 // Returns ([]byte, true) if the node is a []byte.
 //
-// If [Node.ConvertSimilar] was called and the node is a [string]
+// If [Node.ConvertSimilar] was called and the node is a string
 // then will attempt to decode it as base64, with failures returning
 // (false, false).
 //
@@ -118,12 +118,12 @@ func (self *Node) Bytes() ([]byte, bool) {
 	return nil, false
 }
 
-// Returns ([int64], true) if the node is an [int64], [int32],
-// [int16], [int8], or [int].
+// Returns (int64, true) if the node is an int64, int32,
+// int16, int8, or int.
 //
-// If [Node.ConvertSimilar] was called then will convert [uint64],
-// [uint32], [uint16], [uint8], [uint], [float64], and [float32]
-// to an [int64] and return true (unless we are [NoNode]). Precision
+// If [Node.ConvertSimilar] was called then will convert all other number types
+// (uint64, uint32, uint16, uint8, uint, float64, and float32)
+// to an int64 and return true (unless we are [NoNode]). Precision
 // may be lost.
 //
 // By default will fail on nil values. Call [Node.NilMeansZero]
@@ -159,12 +159,12 @@ func (self *Node) Integer() (int64, bool) {
 	return 0, false
 }
 
-// Returns ([uint64], true) if the node is an [uint64], [uint32],
-// [uint16], [uint8], or [uint].
+// Returns (uint64, true) if the node is an uint64, uint32,
+// uint16, uint8, or uint.
 //
-// If [Node.ConvertSimilar] was called then will convert [int64],
-// [int32], [int16], [int8], [int], [float64], and [float32]
-// to an [uint64] and return true (unless we are [NoNode]). Precision
+// If [Node.ConvertSimilar] was called then will convert all other number types
+// (int64, int32, int16, int8, int, float64, and float32)
+// to an uint64 and return true (unless we are [NoNode]). Precision
 // may be lost.
 //
 // By default will fail on nil values. Call [Node.NilMeansZero]
@@ -200,11 +200,12 @@ func (self *Node) UnsignedInteger() (uint64, bool) {
 	return 0, false
 }
 
-// Returns ([float64], true) if the node is a [float64] or a [float32].
+// Returns (float64, true) if the node is a float64 or a float32.
 //
-// If [Node.ConvertSimilar] was called then will convert [int64],
-// [int32], [int16], [int8], [int], [uint64], [uint32], [uint16],
-// [uint8], [uint] to a [float64] and return true (unless we are [NoNode]).
+// If [Node.ConvertSimilar] was called then will convert all other number types
+// (int64, int32, int16, int8, int, uint64, uint32, uint16, uint8, and uint)
+// to a float64 and return true (unless we are [NoNode]).
+//
 // Precision may be lost.
 //
 // By default will fail on nil values. Call [Node.NilMeansZero]
@@ -234,7 +235,7 @@ func (self *Node) Float() (float64, bool) {
 	return 0.0, false
 }
 
-// Returns ([bool], true) if the node is a [bool].
+// Returns (bool, true) if the node is a bool.
 //
 // If [Node.ConvertSimilar] was called then will call [Node.String]
 // and then [strconv.ParseBool], with failures returning (false, false).
@@ -365,9 +366,9 @@ func (self *Node) List() (List, bool) {
 	return nil, false
 }
 
-// Returns a new ([]string, true) if the node is [List] and all
-// its elements are strings. Will optimize and avoid copying if the
-// node is already a []string, which doesn't normally occur in ARD.
+// Returns ([]string, true) if the node is [List] and all its elements are
+// strings. (Will avoid copying if the node is already a []string, which
+// doesn't occur in valid ARD.)
 //
 // If [Node.ConvertSimilar] was called then will convert all
 // [List] elements to their string representations and return true.
@@ -413,7 +414,7 @@ func (self *Node) StringList() ([]string, bool) {
 
 // Sets the value of this node and its key in the containing map.
 //
-// Will fail and return false if there is no containing node or it's
+// Will fail and return false if there's no containing node or it's
 // not [Map] or [StringMap].
 func (self *Node) Set(value Value) bool {
 	if self == NoNode {
@@ -434,7 +435,7 @@ func (self *Node) Set(value Value) bool {
 
 // Appends a value to a [List] and calls [Node.Set].
 //
-// Will fail and return false if there is no containing node or
+// Will fail and return false if there's no containing node or
 // it's not [Map] or [StringMap], or if this node is not a [List].
 func (self *Node) Append(value Value) bool {
 	if self == NoNode {
@@ -450,7 +451,7 @@ func (self *Node) Append(value Value) bool {
 
 // Deletes this node's key from the containing node's map.
 //
-// Will fail and return false if there is no containing node or
+// Will fail and return false if there's no containing node or
 // it's not [Map] or [StringMap].
 func (self *Node) Delete() bool {
 	if self == NoNode {
@@ -471,22 +472,37 @@ func (self *Node) Delete() bool {
 	return false
 }
 
-// Gets a node from a nested [Map] or [StringMap] by recursively following keys.
-// Returns [NoNode] if any key is not found.
+// Gets a nested node by recursively following keys. Thus all keys
+// except the final one refer to nodes that must be [Map] or [StringMap].
+// Returns [NoNode] if any of the keys is not found along the way.
+//
+// Thus the idiomatic safe way to get a nested value is like so:
+//
+// if s, ok := ard.With(value).Get("key1", "key2", "key3").String(); ok {
+// ...
+// }
 //
 // For [StringMap] keys are converted using [MapKeyToString].
 func (self *Node) Get(keys ...Value) *Node {
 	return self.get(keys, false)
 }
 
-// Gets a node from a nested [Map] or [StringMap] by recursively following keys.
-// Along the way, if a nested node does not exist then a map will be created and
-// put in its containing node. The type of the created map will match that of the
-// containing map, either [Map] or [StringMap]. Returns [NoNode] if a nested node
-// already exists and is not a [Map] or [StringMap]. Otherwise the returned node
-// will have a nil value if the last key does not exist in its container. Thus
-// note that if you called [Node.NilMeansZero] you will still get a value even
-// though the last key does not exist in its container.
+// Similar to [Node.Get] except that along the way new maps will be created
+// if they do not exist and the key isn't already in use by something that is
+// not a map. The type of the created map will match that of the containing map,
+// either [Map] or [StringMap]. If the final key does not exist then a node
+// with a nil value, contained in the previous node, will be returned. You can
+// thus call [Node.Set] on it to set the value for the final key.
+//
+// Thus the idiomatic safe way to set a nested value is like so:
+//
+// if ok := ard.With(value).ForceGet("key1", "key2", "key3").Set("value"); ok {
+// ...
+// }
+//
+// If you called [Node.NilMeansZero], then take care when extracting data
+// from the returned node, e.g. via [Node.String], [Node.Integer], etc. If
+// the final key does not exist then these functions would still succeed.
 //
 // For [StringMap] keys are converted using [MapKeyToString].
 func (self *Node) ForceGet(keys ...Value) *Node {

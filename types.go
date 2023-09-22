@@ -112,7 +112,7 @@ func IsList(value Value) bool {
 	return ok
 }
 
-// Returns true if value is a [string].
+// Returns true if value is a string.
 //
 // ([TypeValidator] signature)
 func IsString(value Value) bool {
@@ -151,11 +151,9 @@ func IsTimestamp(value Value) bool {
 	return ok
 }
 
-// Returns true if value is a [string], [bool], [int64], [int32], [int16], [int8], [int],
-// [uint64], [uint32], [uint16], [uint8], [uint], [float64], [float32], nil, []byte, or
+// Returns true if value is a string, bool, int64, int32, int16, int8, int,
+// uint64, uint32, uint16, uint8, uint, float64, float32, nil, []byte, or
 // [time.Time].
-//
-// ([TypeValidator] signature)
 func IsPrimitiveType(value Value) bool {
 	switch value.(type) {
 	case string, bool, int64, int32, int16, int8, int, uint64, uint32, uint16, uint8, uint, float64, float32, nil, []byte, time.Time:

@@ -21,6 +21,6 @@ type List = []Value
 type Map = map[Value]Value
 
 // An alias used to signify a map of ARD [Value] in which the
-// key is always [string]. This alias is introduced for compability
+// key is always string. This alias is introduced for compability
 // with certain parsers and encoders.
 type StringMap = map[string]Value
