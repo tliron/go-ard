@@ -135,7 +135,13 @@ func copy_(value Value, reflector *Reflector, mode conversionMode) (Value, error
 			if IsPrimitiveType(value) {
 				return value, nil
 			} else {
-				if value, err = reflector.Unpack(value, mode == convertMapsToStringMaps); err == nil {
+				if mode == convertMapsToStringMaps {
+					value, err = reflector.UnpackStringMaps(value)
+				} else {
+					value, err = reflector.Unpack(value)
+				}
+
+				if err == nil {
 					if mode != noConversion {
 						value, _ = convert(value, mode)
 					}

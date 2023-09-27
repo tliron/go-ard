@@ -46,12 +46,11 @@ func NewSequencedListPathElement(index int) PathElement {
 type Path []PathElement
 
 func (self Path) Append(element PathElement) Path {
-	return append(self, element)
-	/*length := len(self)
+	length := len(self)
 	path := make(Path, length+1)
 	copy(path, self)
 	path[length] = element
-	return path*/
+	return path
 }
 
 func (self Path) AppendField(name string) Path {

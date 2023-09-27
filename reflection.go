@@ -58,6 +58,9 @@ func NewReflector() *Reflector {
 
 // Packs an ARD value into Go types, recursively.
 //
+// For Go struct field names, keys are converted from [Map] using
+// [MapKeyToString].
+//
 // Structs can provide their own custom packing by implementing the
 // [FromARD] interface.
 //
@@ -71,14 +74,31 @@ func (self *Reflector) Pack(value Value, packedValuePtr any) error {
 	}
 }
 
-// Unpacks Go types to ARD, recursively.
+// Unpacks Go types to ARD, recursively. [Map] is used for Go structs
+// and maps.
+//
+// For Go struct field names, keys are converted to [StringMap]
+// using [MapKeyToString].
 //
 // Structs can provide their own custom unpacking by implementing the
 // [ToARD] interface.
 //
 // packedValuePtr must be a pointer.
-func (self *Reflector) Unpack(packedValue any, useStringMaps bool) (Value, error) {
-	return self.unpack(nil, reflect.ValueOf(packedValue), useStringMaps)
+func (self *Reflector) Unpack(packedValue any) (Value, error) {
+	return self.unpack(nil, reflect.ValueOf(packedValue), false)
+}
+
+// Unpacks Go types to ARD, recursively. [StringMap] is used for Go
+// structs and maps.
+//
+// Keys are converted using [MapKeyToString].
+//
+// Structs can provide their own custom unpacking by implementing the
+// [ToARD] interface.
+//
+// packedValue can be a value or a pointer.
+func (self *Reflector) UnpackStringMaps(packedValue any) (Value, error) {
+	return self.unpack(nil, reflect.ValueOf(packedValue), true)
 }
 
 func (self *Reflector) pack(path Path, value Value, packedValue reflect.Value) error {
