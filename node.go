@@ -2,6 +2,7 @@ package ard
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -273,8 +274,8 @@ func (self *Node) Boolean() (bool, bool) {
 
 // Returns ([Map], true) if the node is a [Map].
 //
-// If [Node.ConvertSimilar] was called then will convert [StringMap]
-// to a [Map] and return true.
+// If [Node.ConvertSimilar] was called then will convert other
+// maps to a [Map] and return true.
 //
 // By default will fail on nil values. Call [Node.NilMeansZero]
 // to interpret nil as an empty [Map].
@@ -292,15 +293,16 @@ func (self *Node) Map() (Map, bool) {
 			return make(Map), true
 		}
 
-	case StringMap:
+	default:
 		if self.convertSimilar {
-			map_ := make(Map)
-
-			for key, value_ := range value {
-				map_[key] = value_
+			value_ := reflect.ValueOf(value)
+			if value_.Type().Kind() == reflect.Map {
+				map_ := make(Map)
+				for _, key := range value_.MapKeys() {
+					map_[key.Interface()] = value_.MapIndex(key).Interface()
+				}
+				return map_, true
 			}
-
-			return map_, true
 		}
 	}
 
@@ -309,8 +311,8 @@ func (self *Node) Map() (Map, bool) {
 
 // Returns ([StringMap], true) if the node is a [StringMap].
 //
-// If [Node.ConvertSimilar] was called then will convert [Map]
-// to a [StringMap] and return true. Keys are converted using
+// If [Node.ConvertSimilar] was called then will convert other
+// maps to a [StringMap] and return true. Keys are converted using
 // [MapKeyToString].
 //
 // By default will fail on nil values. Call [Node.NilMeansZero]
@@ -329,15 +331,16 @@ func (self *Node) StringMap() (StringMap, bool) {
 			return make(StringMap), true
 		}
 
-	case Map:
+	default:
 		if self.convertSimilar {
-			stringMap := make(StringMap)
-
-			for key, value_ := range value {
-				stringMap[MapKeyToString(key)] = value_
+			value_ := reflect.ValueOf(value)
+			if value_.Type().Kind() == reflect.Map {
+				stringMap := make(StringMap)
+				for _, key := range value_.MapKeys() {
+					stringMap[MapKeyToString(key.Interface())] = value_.MapIndex(key).Interface()
+				}
+				return stringMap, true
 			}
-
-			return stringMap, true
 		}
 	}
 
@@ -345,6 +348,9 @@ func (self *Node) StringMap() (StringMap, bool) {
 }
 
 // Returns ([List], true) if the node is a [List].
+//
+// If [Node.ConvertSimilar] was called then will convert other
+// lists to a [List].
 //
 // By default will fail on nil values. Call [Node.NilMeansZero]
 // to interpret nil as an empty [List].
@@ -361,6 +367,20 @@ func (self *Node) List() (List, bool) {
 		if self.nilMeansZero {
 			return List{}, true
 		}
+
+	default:
+		if self.convertSimilar {
+			value_ := reflect.ValueOf(value)
+			kind := value_.Type().Kind()
+			if (kind == reflect.Slice) || (kind == reflect.Array) {
+				length := value_.Len()
+				list := make(List, length)
+				for index := 0; index < length; index++ {
+					list[index] = value_.Index(index).Interface()
+				}
+				return list, true
+			}
+		}
 	}
 
 	return nil, false
@@ -371,8 +391,8 @@ func (self *Node) List() (List, bool) {
 // doesn't occur in valid ARD.)
 //
 // If [Node.ConvertSimilar] was called then will convert all
-// [List] elements to their string representations and return true.
-// Values are converted using [ValueToString].
+// other lists to []string with all elements to their string representations
+// and return true. Values are converted using [ValueToString].
 //
 // By default will fail on nil values. Call [Node.NilMeansZero]
 // to interpret nil as an empty []string.
@@ -406,6 +426,20 @@ func (self *Node) StringList() ([]string, bool) {
 	case nil:
 		if self.nilMeansZero {
 			return []string{}, true
+		}
+
+	default:
+		if self.convertSimilar {
+			value_ := reflect.ValueOf(value)
+			kind := value_.Type().Kind()
+			if (kind == reflect.Slice) || (kind == reflect.Array) {
+				length := value_.Len()
+				list := make([]string, length)
+				for index := 0; index < length; index++ {
+					list[index] = ValueToString(value_.Index(index).Interface())
+				}
+				return list, true
+			}
 		}
 	}
 
