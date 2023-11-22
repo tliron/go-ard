@@ -119,7 +119,7 @@ Copy, merge, and compare:
 func main() {
 	data_ := ard.Copy(data).(ard.Map)
 	fmt.Printf("%t\n", ard.Equals(data, data_))
-	ard.MergeMaps(data, ard.Map{"role": "hero", "children": ard.List{"Gollum"}}, true)
+	ard.Merge(data, ard.Map{"role": "hero", "children": ard.List{"Gollum"}}, true)
 	fmt.Printf("%v\n", data)
 }
 ```
