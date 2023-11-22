@@ -166,7 +166,7 @@ func main() {
 }
 ```
 
-Introducing the XJON (eXtended JSON) format that adds support for missing ARD types: integers,
+Introducing the XJSON (eXtended JSON) format that adds support for missing ARD types: integers,
 unsigned integers, and maps with non-string keys:
 
 ```go
