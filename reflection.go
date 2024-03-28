@@ -299,8 +299,7 @@ func (self *Reflector) packStructField(structPath Path, structValue reflect.Valu
 	return self.pack(path, value, field)
 }
 
-var time_ time.Time
-var timeType = reflect.TypeOf(time_)
+var timeType = reflect.TypeFor[time.Time]()
 
 func (self *Reflector) unpack(path Path, packedValue reflect.Value, useStringMaps bool) (Value, error) {
 	// Support ToARD interface
