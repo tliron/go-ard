@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"io"
 
-	"github.com/tliron/kutil/util"
+	"github.com/tliron/go-kutil/util"
 )
 
 type conversionMode int

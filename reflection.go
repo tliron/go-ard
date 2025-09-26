@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tliron/kutil/reflection"
-	"github.com/tliron/kutil/util"
+	"github.com/tliron/go-kutil/reflection"
+	"github.com/tliron/go-kutil/util"
 )
 
 type StructFieldNameMapperFunc func(fieldName string) string

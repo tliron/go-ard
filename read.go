@@ -9,7 +9,7 @@ import (
 	"github.com/beevik/etree"
 	"github.com/fxamacker/cbor/v2"
 	"github.com/tliron/exturl"
-	"github.com/tliron/kutil/util"
+	"github.com/tliron/go-kutil/util"
 	"github.com/tliron/yamlkeys"
 	"gopkg.in/yaml.v3"
 )

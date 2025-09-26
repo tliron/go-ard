@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"github.com/beevik/etree"
-	"github.com/tliron/kutil/util"
+	"github.com/tliron/go-kutil/util"
 	"github.com/tliron/yamlkeys"
 )
 

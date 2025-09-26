@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/tliron/kutil/util"
+	"github.com/tliron/go-kutil/util"
 )
 
 //

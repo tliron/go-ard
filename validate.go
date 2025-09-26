@@ -8,7 +8,7 @@ import (
 	"io"
 
 	"github.com/fxamacker/cbor/v2"
-	"github.com/tliron/kutil/util"
+	"github.com/tliron/go-kutil/util"
 	"github.com/vmihailenco/msgpack/v5"
 	"gopkg.in/yaml.v3"
 )
